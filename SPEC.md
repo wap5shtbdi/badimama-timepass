@@ -64,7 +64,8 @@ Mockups: Design canvas "Marriage card game mockups" (claude.ai artifact HeghxSFR
   - Derived, not yet confirmed: 6♥ 7♥ 7♥ 8♥ = 13 (marriage + single 7♥ beats 6♥ + 7♥7♥ + 8♥ = 12).
 - Ace/King jokers wrap: joker A♥ → K♥ and 2♥ are value cards/jokers; joker K♥ → Q♥ and A♥.
 - A set made only of jokers (e.g. 6♥ 7♠ 8♥) IS allowed after seeing the joker (corrected by Vikram).
-  - Assumed, not yet confirmed: it counts toward the minimum 3 (jokers can always stand in for a sequence).
+  - It does NOT count toward the minimum 3 (confirmed). Base logic (Vikram): "to be able to see or use a joker you must have 3 sets."
+  - OPEN-27: by that logic, should same-suit sequences WITH a joker (4♠ 5♠ + 7♣) also stop counting? Earlier answer was "yes, they count". Engine still counts them until confirmed.
 
 ## 7. Technical decisions (confirmed 2026-10-27)
 - Installable web app (PWA): home-screen icon, full screen, landscape. Works on Android Chrome and PC. No APK for v1.

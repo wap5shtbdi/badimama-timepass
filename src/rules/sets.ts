@@ -104,9 +104,8 @@ export function checkSet(cards: Card[], picked: Card | null): SetCheck {
   const jokers = cards.length - naturals.length;
   if (jokers === 0) return INVALID('Not a valid set');
   if (naturals.length === 0) {
-    // Only wildcards (confirmed allowed). Counts toward the minimum 3, since jokers can always
-    // stand in for a sequence (assumption, SPEC.md section 6b).
-    return { valid: true, kind: 'allJokers', pure: false, countsForMinimum: true, isMarriage: false };
+    // Only wildcards (confirmed allowed). Does NOT count toward the minimum 3 (confirmed).
+    return { valid: true, kind: 'allJokers', pure: false, countsForMinimum: false, isMarriage: false };
   }
 
   if (allSameRank(naturals)) {

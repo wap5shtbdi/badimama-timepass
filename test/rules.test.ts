@@ -66,7 +66,7 @@ describe('jokers and value cards (joker 7♥)', () => {
   });
 
   it('a set made only of jokers is allowed after seeing the joker, not before', () => {
-    expect(checkSet(c('6H 7S 8H'), J)).toMatchObject({ valid: true, kind: 'allJokers', countsForMinimum: true });
+    expect(checkSet(c('6H 7S 8H'), J)).toMatchObject({ valid: true, kind: 'allJokers', countsForMinimum: false });
     expect(checkSet(c('6H 7S 8H'), null).valid).toBe(false);
   });
 
