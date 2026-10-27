@@ -5,15 +5,16 @@ import { type Card, isJoker, valueRole } from './cards';
 // ---------- Value points (joker 7♥ example: 6♥ = low, 7♥ = tiplu, 8♥ = high) ----------
 // Confirmed by Vikram:
 //   7♥ = 3, 6♥ or 8♥ = 2, 6♥+8♥ = 4, 6♥+7♥ = 5
-//   6♥6♥ = 5, 8♥8♥ = 5, 7♥7♥ = 5
+//   6♥6♥ = 5, 8♥8♥ = 5, 7♥7♥ = 8
 //   marriage = 10: 6♥7♥8♥, 6♥6♥6♥, 8♥8♥8♥; several allowed
-//   6♥6♥7♥ = 66 + 7 = 8 (grouping with the most points)
+//   6♥6♥7♥ = 66 + 7 = 8; 6♥6♥7♥8♥ = marriage + 6 = 12 (grouping with the most points)
 // Only two 7♥ can be in play (the third is the picked joker, out of play).
 
 export const VALUE = {
   tiplu: 3,
   neighbour: 2,
-  pair: 5, // two identical value cards (low, high or tiplu)
+  pair: 5, // two identical neighbours (6♥6♥ or 8♥8♥)
+  tipluPair: 8, // 7♥7♥ (confirmed 2026-10-27; was 5)
   marriage: 10, // low + tiplu + high, or three identical low / high
 } as const;
 
@@ -26,7 +27,7 @@ function neighbourPoints(n: number): number {
 
 /** Points for tiplus held `n` times (0..2), outside marriages. */
 function tipluPoints(n: number): number {
-  if (n >= 2) return VALUE.pair; // 77 = 5 (as stated; note 3+3 would be 6, see OPEN-23)
+  if (n >= 2) return VALUE.tipluPair; // 77 = 8
   return n * VALUE.tiplu;
 }
 

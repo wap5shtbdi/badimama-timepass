@@ -34,7 +34,9 @@ Mockups: Design canvas "Marriage card game mockups" (claude.ai artifact HeghxSFR
 | 6♥ or 8♥ | 2 each |
 | 6♥ + 8♥ | 4 |
 | 6♥ + 7♥ (or 7♥ + 8♥) | 5 (sum per card) |
-| 6♥ 6♥, 8♥ 8♥, 7♥ 7♥ | 5 |
+| 6♥ 6♥, 8♥ 8♥ | 5 |
+| 7♥ 7♥ | 8 (corrected 2026-10-27, was 5) |
+| 6♥ 6♥ 7♥ 8♥ | 12 = marriage + single 6♥ |
 | Marriage: 6♥ 7♥ 8♥, 6♥ 6♥ 6♥, 8♥ 8♥ 8♥ | 10 each; multiple allowed |
 | 7♥ 7♥ 7♥ | impossible (third 7♥ is the picked joker, out of play) |
 | Trail / tunnela of non-value cards | 0 |
@@ -56,11 +58,12 @@ Mockups: Design canvas "Marriage card game mockups" (claude.ai artifact HeghxSFR
 - If the result is negative, the declarer pays that player the difference (confirmed). Example: Dad card pts 2, declarer value 3, Dad value 15 → 2 + 3 − 15 = −10 → declarer pays Dad 10.
 - All rules confirmed as of v0.5; no OPEN items.
 
-## 6b. Edge cases found while coding the rules engine (OPEN, need Vikram)
-- OPEN-23: 7♥ 7♥ = 5 as stated, but two single 7♥ would be 3 + 3 = 6. Confirm 5? (Engine: 5.)
-- OPEN-24: 6♥ 6♥ 7♥ 8♥: marriage (6♥7♥8♥) + 6♥ = 12, or 6♥6♥ + 7♥ + 8♥ = 10? (Engine: 12, the higher.)
-- OPEN-25: joker is an Ace or King. Joker A♥: are K♥ and 2♥ the value cards/jokers? Joker K♥: Q♥ and A♥? (Engine: yes, wraps around.)
-- OPEN-26: a set made only of jokers that isn't a natural set, e.g. 6♥ 7♠ 8♥. Allowed? (Engine: not allowed.)
+## 6b. Edge cases found while coding the rules engine (all confirmed 2026-10-27)
+- 7♥ 7♥ = 8.
+- 6♥ 6♥ 7♥ 8♥ = 12 (marriage + single 6♥). General rule: score the grouping with the most points.
+  - Derived, not yet confirmed: 6♥ 7♥ 7♥ 8♥ = 13 (marriage + single 7♥ beats 6♥ + 7♥7♥ + 8♥ = 12).
+- Ace/King jokers wrap: joker A♥ → K♥ and 2♥ are value cards/jokers; joker K♥ → Q♥ and A♥.
+- A set made only of jokers that isn't a natural set (e.g. 6♥ 7♠ 8♥) is NOT allowed.
 
 ## 7. Technical decisions (confirmed 2026-10-27)
 - Installable web app (PWA): home-screen icon, full screen, landscape. Works on Android Chrome and PC. No APK for v1.

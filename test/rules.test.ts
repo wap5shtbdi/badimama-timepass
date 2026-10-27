@@ -56,6 +56,19 @@ describe('jokers and value cards (joker 7♥)', () => {
     for (const k of ['6S', '8D', '5H', '9H']) expect(isJoker(parseCard(k), J)).toBe(false);
   });
 
+  it('neighbours wrap around for Ace and King jokers', () => {
+    const ace = parseCard('AH');
+    expect(valueRole(parseCard('KH'), ace)).toBe('low');
+    expect(valueRole(parseCard('2H'), ace)).toBe('high');
+    const king = parseCard('KH');
+    expect(valueRole(parseCard('QH'), king)).toBe('low');
+    expect(valueRole(parseCard('AH'), king)).toBe('high');
+  });
+
+  it('a set made only of jokers (not a natural set) is not allowed', () => {
+    expect(checkSet(c('6H 7S 8H'), J).valid).toBe(false);
+  });
+
   it('only 6♥ 7♥ 8♥ are value cards', () => {
     expect(valueRole(parseCard('6H'), J)).toBe('low');
     expect(valueRole(parseCard('7H'), J)).toBe('tiplu');
@@ -163,7 +176,9 @@ describe('value points (joker 7♥)', () => {
     ['7H 8H', 5],
     ['6H 6H', 5],
     ['8H 8H', 5],
-    ['7H 7H', 5],
+    ['7H 7H', 8],
+    ['6H 6H 7H 8H', 12], // marriage + single 6
+    ['6H 7H 7H 8H', 13], // marriage + single 7 beats 6 + 77 + 8 = 12
     ['6H 7H 8H', 10],
     ['6H 6H 6H', 10],
     ['8H 8H 8H', 10],
