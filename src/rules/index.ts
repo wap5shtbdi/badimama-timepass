@@ -1,9 +1,10 @@
 export * from './cards';
 export * from './sets';
 export * from './scoring';
+export * from './arrange';
 
+import { bestArrangement } from './arrange';
 import type { Card } from './cards';
-import { checkSet } from './sets';
 import { settle, unusedPoints, valuePoints, type Payment } from './scoring';
 
 export interface PlayerHand {
@@ -18,26 +19,40 @@ export interface PlayerRoundResult {
   marriages: number;
   unusedSum: number;
   unused: number;
+  /**
+   * The hand as scored: the declarer's own arrangement, or for everyone else the automatic
+   * best arrangement (SPEC 6, confirmed 2026-10-27).
+   */
+  sets: Card[][];
+  loose: Card[];
 }
 
-/** Cards that count as unused: loose cards plus cards in sets that aren't valid for this player. */
-export function unusedCards(hand: PlayerHand, picked: Card): Card[] {
-  const ctx = hand.seenJoker ? picked : null;
-  const fromBadSets = hand.sets.filter((s) => !checkSet(s, ctx).valid).flat();
-  return [...hand.loose, ...fromBadSets];
-}
-
-/** Full end-of-round scoring once someone declares. */
+/**
+ * Full end-of-round scoring once someone declares.
+ * Each other player's cards are arranged automatically into the valid sets that leave the
+ * fewest unused points (how they arranged them on screen doesn't matter), then counted.
+ */
 export function scoreRound(
   hands: PlayerHand[],
   declarer: number,
   picked: Card,
 ): { results: PlayerRoundResult[]; payments: Payment[]; net: number[] } {
-  const results = hands.map((h, i) => {
+  const results = hands.map((h, i): PlayerRoundResult => {
     const all = [...h.sets.flat(), ...h.loose];
     const v = valuePoints(all, picked);
-    const u = i === declarer ? { sum: 0, points: 0 } : unusedPoints(unusedCards(h, picked), picked);
-    return { value: v.points, marriages: v.marriages, unusedSum: u.sum, unused: u.points };
+    if (i === declarer) {
+      return { value: v.points, marriages: v.marriages, unusedSum: 0, unused: 0, sets: h.sets, loose: h.loose };
+    }
+    const arranged = bestArrangement(all, picked, h.seenJoker);
+    const u = unusedPoints(arranged.loose, picked);
+    return {
+      value: v.points,
+      marriages: v.marriages,
+      unusedSum: u.sum,
+      unused: u.points,
+      sets: arranged.sets,
+      loose: arranged.loose,
+    };
   });
   const { payments, net } = settle(declarer, results);
   return { results, payments, net };

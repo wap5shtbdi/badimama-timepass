@@ -103,7 +103,7 @@ export interface ResultRow {
   pays: number;
   /** This round's net for this player. */
   net: number;
-  /** Full hand, revealed at the end of the round. */
+  /** Full hand, revealed at the end of the round. For everyone but the declarer, arranged automatically for scoring. */
   sets: Card[][];
   loose: Card[];
 }

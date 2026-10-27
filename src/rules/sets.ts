@@ -112,7 +112,8 @@ export function checkSet(cards: Card[], picked: Card | null): SetCheck {
     return { valid: true, kind: 'allJokers', pure: false, countsForMinimum: false, isMarriage: false };
   }
 
-  if (allSameRank(naturals)) {
+  // One natural card + jokers is a sequence (K♦ + 2 jokers = J♦ Q♦ K♦), handled below.
+  if (naturals.length >= 2 && allSameRank(naturals)) {
     const n0 = naturals[0] as Card;
     if (naturals.every((c) => sameCard(c, n0))) {
       return INVALID("Jokers can't complete a suited trail");

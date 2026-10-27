@@ -1,6 +1,6 @@
 # Marriage (21-card rummy) — family web app spec
 
-Status: v0.6, 2026-10-27. All rules confirmed. Table server built; its own decisions are OPEN-15 to OPEN-19 (section 10). Rules confirmed by Vikram unless marked OPEN.
+Status: v0.7, 2026-10-27. All rules confirmed, including the table-server decisions (section 10). Rules confirmed by Vikram unless marked OPEN.
 Goal: playable online with parents (India, Android browser), Vikram (Paris, PC), sometimes sister. Target: playable by weekend of 2026-10-31.
 Mockups: Design canvas "Marriage card game mockups" (claude.ai artifact HeghxSFRmevPtwZEn8wWdF).
 
@@ -55,6 +55,7 @@ Mockups: Design canvas "Marriage card game mockups" (claude.ai artifact HeghxSFR
 - Each non-declarer pays the declarer: card points + declarer's value points − own value points.
   - Example: declarer 10 value pts. Mom: card pts 3, value 2 → pays 11.
 - Only UNUSED cards are summed: cards not in a valid set, jokers excluded (confirmed).
+- Every non-declarer's cards are ARRANGED AUTOMATICALLY into the valid sets that leave the fewest unused points, then counted (confirmed 2026-10-27). How they arranged them on screen doesn't matter. Validity follows the player: no wildcards if they haven't seen the joker. The result screen shows this arrangement. Code: `src/rules/arrange.ts` (exact search, checked against an exhaustive search in tests).
 - If the result is negative, the declarer pays that player the difference (confirmed). Example: Dad card pts 2, declarer value 3, Dad value 15 → 2 + 3 − 15 = −10 → declarer pays Dad 10.
 - All rules confirmed as of v0.5; no OPEN items.
 
@@ -111,7 +112,8 @@ Mockups: Design canvas "Marriage card game mockups" (claude.ai artifact HeghxSFR
   - Server sends other players' sets to everyone, never their in-hand cards.
 - Minimum-3 rule (confirmed): once a player has seen the joker, the game blocks any move that would leave them with fewer than 3 valid sets. Message shown; move undone.
   - SUPERSEDED: see "MINIMUM-3 RULE, FINAL" in section 6b. Only natural sets (no jokers) count.
-- Jokers can NEVER complete a suited (identical) trail: K♣ K♣ + 7♠ is not a valid set (confirmed). Shown as "! No jokers in a suited trail".
+- Jokers can NEVER complete a suited (identical) trail: K♣ K♣ + 7♠ is not a valid set (confirmed).
+  - BUG FIXED 2026-10-27: ONE natural card + jokers (K♦ 7♣ 6♥) was wrongly rejected by this check. It is a joker sequence (J♦ Q♦ K♦ / Q♦ K♦ A♦) and is now valid, consistent with all-joker sets and K♣ K♦ + joker being valid. Doesn't count toward the minimum 3. Shown as "! No jokers in a suited trail".
   - A joker CAN complete a mixed-suit trail (K♣ K♦ + 7♠) (confirmed). Valid set, but doesn't count toward the minimum 3.
 
 ## 9. Hosting options (verified 2026-10-27)
@@ -130,12 +132,12 @@ Code: `src/game/engine.ts` (all game logic, pure TS), `src/game/protocol.ts` (me
 - A rejected move changes nothing (applied to a copy) and the error goes only to that player.
 - Shuffling uses the platform's cryptographic random source.
 
-### Server decisions NOT in the confirmed rules (please confirm or correct)
-- OPEN-15 When can you show? Only on your own turn, before or after drawing. After everyone acknowledges (and the first shower picks the joker), the same player's turn continues. Mockup shows it after drawing.
-- OPEN-16 Stock runs out: the discard pile minus its top card is shuffled into a new stock.
-- OPEN-17 Unused cards at the end are counted from how each player has ARRANGED their sets at the moment of the declare (a valid set left in the "in hand" zone counts as unused). Alternative: the server finds each loser's best arrangement automatically. Matters if parents don't arrange carefully.
-- OPEN-18 Taking the discard: no restrictions (some families forbid picking up a joker or require using the card in a set).
-- OPEN-19 Dealer rotates each round; the player after the dealer plays first.
+### Server decisions (confirmed by Vikram 2026-10-27)
+- Showing: only on your own turn, before or after drawing. After everyone acknowledges (and the first shower picks the joker), the same player's turn continues.
+- Stock runs out: the discard pile minus its top card is shuffled into a new stock.
+- Scoring: the other players' cards are arranged automatically before unused cards are counted (see section 6).
+- Taking the discard: no restrictions.
+- Dealer: the player who declared the last round deals the next one; the player after the dealer plays first. First round: the host (first player) deals. If the last declarer has left, the first player deals. An abandoned round (nobody declared) is dealt again by the same dealer.
 - New players can join only in the lobby or between rounds; a returning player (same device) can rejoin any time.
 - Host-only "abandon round" (back to the lobby, no scoring) as an escape if someone can't continue; otherwise the game waits (confirmed).
 - Running totals per player = sum of settlements across rounds.

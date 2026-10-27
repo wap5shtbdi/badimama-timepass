@@ -90,6 +90,8 @@ export interface TableState {
   result: RoundResult | null;
   /** Running totals by player id. */
   totals: Record<string, number>;
+  /** Who deals the next round: the last declarer (confirmed). Null before the first round. */
+  nextDealer: string | null;
   /** Bumped on every accepted change. */
   rev: number;
 }
@@ -135,6 +137,7 @@ export function createTable(code: string): TableState {
     round: null,
     result: null,
     totals: {},
+    nextDealer: null,
     rev: 0,
   };
 }
@@ -206,8 +209,10 @@ function startRound(state: TableState, playerId: string, env: EngineEnv): void {
   if (n < MIN_PLAYERS) fail(`Need at least ${MIN_PLAYERS} players`);
   const seats = state.players.map((p) => p.id);
   state.roundNo += 1;
-  // Dealer rotates each round; the player after the dealer plays first.
-  const dealerIdx = (state.roundNo - 1) % n;
+  // The last declarer deals (confirmed). First round, or if they've left: the first player (host).
+  // The player after the dealer plays first.
+  const next = state.nextDealer;
+  const dealerIdx = next && seats.includes(next) ? seats.indexOf(next) : 0;
   const dealt = deal(n, env.random);
   const hands: Record<string, Hand> = {};
   seats.forEach((id, i) => {
@@ -242,7 +247,8 @@ function leave(state: TableState, playerId: string): void {
 
 function abandonRound(state: TableState, playerId: string): void {
   requireHost(state, playerId);
-  if (state.phase !== 'playing') fail('No round is being played');
+  if (state.phase !== 'playing' || !state.round) fail('No round is being played');
+  state.nextDealer = state.round.dealer; // nobody declared, so the same dealer deals again
   state.round = null;
   state.result = null;
   state.phase = 'lobby';
@@ -489,10 +495,12 @@ function declare(state: TableState, playerId: string, discardId: unknown): void 
       unused: r.unused,
       pays: payment?.toDeclarer ?? 0,
       net,
-      sets: round.hands[id]!.sets,
-      loose: round.hands[id]!.loose,
+      // Declarer: their own arrangement. Others: the automatic best arrangement that was scored.
+      sets: r.sets,
+      loose: r.loose,
     };
   });
+  state.nextDealer = playerId;
   state.result = { roundNo: round.roundNo, declarer: playerId, joker: picked, rows };
   state.round = null;
   state.phase = 'roundOver';

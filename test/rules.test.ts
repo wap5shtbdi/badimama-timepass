@@ -254,7 +254,7 @@ describe('settlement', () => {
 });
 
 describe('full round scoring', () => {
-  it('counts only unused cards (loose + invalid sets), and value points from ALL held cards', () => {
+  it('counts unused cards after automatic arrangement, and value points from ALL held cards', () => {
     const { results, payments } = scoreRound(
       [
         // Declarer: all valid, includes a marriage.
@@ -280,13 +280,16 @@ describe('full round scoring', () => {
       J,
     );
     expect(results[0]).toMatchObject({ value: 10, marriages: 1 });
-    // Mom: value 6H = 2; unused sum K(10) + 9 = 19 → 2 points.
-    expect(results[1]).toMatchObject({ value: 2, unusedSum: 19, unused: 2 });
-    // Dad: unused = 5C, 9D + invalid set 2H 3H (7C removed) = 5 + 9 + 2 + 3 = 19 → 2.
-    expect(results[2]).toMatchObject({ value: 0, unusedSum: 19, unused: 2 });
+    // Cards are re-arranged automatically before counting (confirmed 2026-10-27).
+    // Mom (saw joker): K♦ 7♣ 6♥ becomes a joker sequence; only 9♣ is left → 9 → 1 point. Value 6♥ = 2.
+    expect(results[1]).toMatchObject({ value: 2, unusedSum: 9, unused: 1 });
+    expect(results[1]!.loose.map((x) => x.rank + x.suit)).toEqual(['9C']);
+    // Dad (no joker, so no wildcards): 9♦ extends 6♦ 7♦ 8♦. Left: 5♣ 2♥ 3♥ 7♣ (joker, removed)
+    // = 5 + 2 + 3 = 10 → 1 point (half down).
+    expect(results[2]).toMatchObject({ value: 0, unusedSum: 10, unused: 1 });
     expect(payments).toEqual([
-      { player: 1, toDeclarer: 2 + 10 - 2 },
-      { player: 2, toDeclarer: 2 + 10 - 0 },
+      { player: 1, toDeclarer: 1 + 10 - 2 },
+      { player: 2, toDeclarer: 1 + 10 - 0 },
     ]);
   });
 });

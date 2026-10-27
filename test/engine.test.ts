@@ -247,15 +247,26 @@ describe('dealing and turns', () => {
     expect(g.try(1, { type: 'draw', from: 'stock' })).toMatch(/No cards left/);
   });
 
-  it('dealer rotates in the next round', () => {
+  it('first round: the host deals; an abandoned round is dealt again by the same dealer', () => {
     const g = new Game(3);
     g.do(0, { type: 'start' });
+    expect(g.round.dealer).toBe(g.ids[0]);
+    g.state.nextDealer = g.ids[2]!; // as if Dad had declared last
     g.state.phase = 'roundOver';
     g.state.round = null;
     g.do(0, { type: 'start' });
-    expect(g.state.roundNo).toBe(2);
-    expect(g.round.dealer).toBe(g.ids[1]);
-    expect(g.turnPlayer()).toBe(2);
+    expect(g.round.dealer).toBe(g.ids[2]);
+    expect(g.turnPlayer()).toBe(0); // the player after the dealer starts
+    g.do(0, { type: 'abandonRound' });
+    g.do(0, { type: 'start' });
+    expect(g.round.dealer).toBe(g.ids[2]);
+  });
+
+  it('if the last declarer has left, the first player deals', () => {
+    const g = new Game(3);
+    g.state.nextDealer = 'gone';
+    g.do(0, { type: 'start' });
+    expect(g.round.dealer).toBe(g.ids[0]);
   });
 
   it('host can abandon a round; others cannot', () => {
@@ -470,10 +481,10 @@ describe('declare and settle', () => {
       ],
       [],
     );
-    // Dad (seen): 8♥ loose = value 2. Unused K♦ Q♦ 3♠ = 23 (8♥ is a joker, removed) → 2 points.
+    // Dad (seen): 8♥ = value 2. Auto-arranged: K♦ Q♦ 8♥ is a joker sequence → only 3♠ unused → 0 points.
     g.setHand(2, [cards('d1', 'AS 2S 3S'), cards('d2', '4D 5D 6D')], cards('d3', 'KD QD 8H 3S'));
-    // Sister (not seen): 5♣ 6♣ 7♠ isn't valid for her, so it's unused; 7♠ is a joker, removed.
-    // Unused 5 + 6 + K + Q + J + 9 = 50 → 5 points. Value 0.
+    // Sister (not seen, no wildcards): K♥ Q♥ J♥ is a pure sequence once auto-arranged.
+    // Unused 5♣ 6♣ 9♥ (7♠ is a joker, removed) = 20 → 2 points. Value 0.
     g.setHand(3, [cards('s1', '5C 6C 7S'), cards('s2', 'AC 2C 3C')], cards('s3', 'KH QH JH 9H'));
     // Vikram (not seen): 2♠ 3♦ = 5 → 0 points (half down).
     g.setHand(0, [], cards('v1', '2S 3D'));
@@ -521,26 +532,30 @@ describe('declare and settle', () => {
     expect(res.declarer).toBe(g.ids[1]);
     expect(res.joker).toMatchObject({ rank: 7, suit: 'H' });
     const row = (i: number) => res.rows.find((r) => r.player === g.ids[i])!;
-    expect(row(1)).toMatchObject({ name: 'Mom', value: 10, marriages: 1, unused: 0, pays: 0, net: 35 });
-    expect(row(2)).toMatchObject({ seen: true, value: 2, unusedSum: 23, unused: 2, pays: 10, net: -10 }); // 2 + 10 − 2
-    expect(row(3)).toMatchObject({ seen: false, value: 0, unusedSum: 50, unused: 5, pays: 15, net: -15 }); // 5 + 10 − 0
+    expect(row(1)).toMatchObject({ name: 'Mom', value: 10, marriages: 1, unused: 0, pays: 0, net: 30 });
+    expect(row(2)).toMatchObject({ seen: true, value: 2, unusedSum: 3, unused: 0, pays: 8, net: -8 }); // 0 + 10 − 2
+    expect(row(3)).toMatchObject({ seen: false, value: 0, unusedSum: 20, unused: 2, pays: 12, net: -12 }); // 2 + 10 − 0
+    expect(row(3).loose.map((c) => c.rank + c.suit)).toEqual(['5C', '6C', '7S', '9H']);
     expect(row(0)).toMatchObject({ seen: false, unusedSum: 5, unused: 0, pays: 10, net: -10 }); // 0 + 10 − 0
     expect(row(1).sets).toHaveLength(7);
 
     expect(Object.values(g.state.totals).reduce((a, b) => a + b, 0)).toBe(0);
-    expect(g.state.totals[g.ids[1]!]).toBe(35);
+    expect(g.state.totals[g.ids[1]!]).toBe(30);
+    expect(g.state.nextDealer).toBe(g.ids[1]); // Mom declared, so Mom deals next
 
     // Result is visible to everyone, hands revealed.
     const v = g.view(0);
     expect(v.result!.rows).toHaveLength(4);
     expect(v.round).toBeNull();
-    expect(v.players.find((p) => p.id === g.ids[1])!.total).toBe(35);
+    expect(v.players.find((p) => p.id === g.ids[1])!.total).toBe(30);
 
     // Next round; totals carry over, result clears.
     g.do(0, { type: 'start' });
     expect(g.state.phase).toBe('playing');
     expect(g.view(0).result).toBeNull();
-    expect(g.state.totals[g.ids[1]!]).toBe(35);
+    expect(g.state.totals[g.ids[1]!]).toBe(30);
+    expect(g.round.dealer).toBe(g.ids[1]);
+    expect(g.turnPlayer()).toBe(2);
   });
 
   it('a non-declarer with high value points gets paid by the declarer', () => {
