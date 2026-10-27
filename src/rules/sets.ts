@@ -7,7 +7,8 @@ export type SetKind =
   | 'trail' // pure: three identical cards (same rank AND suit)
   | 'sequenceWithJoker' // same suit, consecutive, gaps filled by jokers
   | 'mixedTrail' // same rank, different suits (only after seeing the joker)
-  | 'mixedTrailWithJoker';
+  | 'mixedTrailWithJoker'
+  | 'allJokers'; // only wildcards, e.g. 6♥ 7♠ 8♥ with joker 7♥ (confirmed allowed)
 
 export interface SetCheck {
   valid: boolean;
@@ -103,8 +104,9 @@ export function checkSet(cards: Card[], picked: Card | null): SetCheck {
   const jokers = cards.length - naturals.length;
   if (jokers === 0) return INVALID('Not a valid set');
   if (naturals.length === 0) {
-    // Only wildcards; they don't form a natural set (checked above). Treat as invalid.
-    return INVALID('A set needs at least one non-joker card');
+    // Only wildcards (confirmed allowed). Counts toward the minimum 3, since jokers can always
+    // stand in for a sequence (assumption, SPEC.md section 6b).
+    return { valid: true, kind: 'allJokers', pure: false, countsForMinimum: true, isMarriage: false };
   }
 
   if (allSameRank(naturals)) {

@@ -65,8 +65,9 @@ describe('jokers and value cards (joker 7♥)', () => {
     expect(valueRole(parseCard('AH'), king)).toBe('high');
   });
 
-  it('a set made only of jokers (not a natural set) is not allowed', () => {
-    expect(checkSet(c('6H 7S 8H'), J).valid).toBe(false);
+  it('a set made only of jokers is allowed after seeing the joker, not before', () => {
+    expect(checkSet(c('6H 7S 8H'), J)).toMatchObject({ valid: true, kind: 'allJokers', countsForMinimum: true });
+    expect(checkSet(c('6H 7S 8H'), null).valid).toBe(false);
   });
 
   it('only 6♥ 7♥ 8♥ are value cards', () => {
