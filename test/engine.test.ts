@@ -202,6 +202,7 @@ describe('dealing and turns', () => {
     expect(g.round.discard.at(-1)).toEqual(card);
     expect(g.turnPlayer()).toBe(2);
     expect(g.round.lastAction).toEqual({ by: g.ids[1], kind: 'discarded', card });
+    expect(g.view(0).round!.events.map((e) => e.kind)).toEqual(['drewStock', 'discarded']);
     expect(countAllCards(g.state)).toBe(156);
   });
 
@@ -213,6 +214,18 @@ describe('dealing and turns', () => {
     expect(g.hand(1).loose.at(-1)).toEqual(top);
     expect(g.round.discard).toHaveLength(0);
     expect(g.round.lastAction).toEqual({ by: g.ids[1], kind: 'drewDiscard', card: top });
+  });
+
+  it('keeps only the last 12 events', () => {
+    const g = new Game(2);
+    g.do(0, { type: 'start' });
+    for (let i = 0; i < 10; i++) {
+      const p = g.turnPlayer();
+      g.do(p, { type: 'draw', from: 'stock' });
+      g.do(p, { type: 'discard', cardId: g.hand(p).loose[0]!.id });
+    }
+    expect(g.round.events).toHaveLength(12);
+    expect(g.round.events.at(-1)).toEqual(g.round.lastAction);
   });
 
   it('turn wraps around the table', () => {

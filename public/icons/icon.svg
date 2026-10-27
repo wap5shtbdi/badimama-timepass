@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0F4D3A"/>
+  <g transform="translate(256 286)">
+    <g transform="rotate(-16)">
+      <rect x="-92" y="-150" width="184" height="256" rx="22" fill="#7A2430" stroke="#FFFDF8" stroke-width="10"/>
+    </g>
+    <g transform="rotate(12) translate(28 -6)">
+      <rect x="-92" y="-150" width="184" height="256" rx="22" fill="#FFFDF8"/>
+      <text x="-64" y="-88" font-family="Georgia, serif" font-weight="700" font-size="64" fill="#C62828">7</text>
+      <path d="M0 58 C-58 18 -62 -26 -30 -38 C-12 -44 -2 -32 0 -22 C2 -32 12 -44 30 -38 C62 -26 58 18 0 58Z" fill="#C62828"/>
+      <circle cx="-56" cy="72" r="16" fill="#F2C14E" stroke="#8A6A1C" stroke-width="4"/>
+    </g>
+  </g>
+</svg>

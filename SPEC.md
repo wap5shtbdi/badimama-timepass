@@ -1,6 +1,6 @@
 # Marriage (21-card rummy) — family web app spec
 
-Status: v0.7, 2026-10-27. All rules confirmed, including the table-server decisions (section 10). Rules confirmed by Vikram unless marked OPEN.
+Status: v0.8, 2026-10-27. All rules confirmed, including the table-server decisions (section 10). Screens built (section 11). Rules confirmed by Vikram unless marked OPEN.
 Goal: playable online with parents (India, Android browser), Vikram (Paris, PC), sometimes sister. Target: playable by weekend of 2026-10-31.
 Mockups: Design canvas "Marriage card game mockups" (claude.ai artifact HeghxSFRmevPtwZEn8wWdF).
 
@@ -142,3 +142,32 @@ Code: `src/game/engine.ts` (all game logic, pure TS), `src/game/protocol.ts` (me
 - Host-only "abandon round" (back to the lobby, no scoring) as an escape if someone can't continue; otherwise the game waits (confirmed).
 - Running totals per player = sum of settlements across rounds.
 - Tables are never deleted (a few KB each). Anyone with the site can create a table; no login.
+
+## 11. Screens (built 2026-10-27)
+Code: `src/client/` (React). Pure logic in `hand.ts` / `cards.ts` (unit-tested in `test/hand.test.ts`).
+
+### What's there
+- Home: name, New table, Join with code, "Back to table XXXX". Links `/t/CODE` open a table directly (asks for a name the first time).
+- Lobby (portrait OK): code, Share invite (Android share sheet, else WhatsApp link), Copy link, 5 seats, host starts with 2+ players.
+- Table (landscape): turn banner; player chips (gold ring = whose turn, eye = has seen the joker, "offline"); tap a name to see their sets. Stock and discard glow when you can draw. Joker panel (hidden / picked by X / the joker with jokers and value cards and your value points).
+- Arranging: tap cards (numbered in tap order) → New set / + Add on a set / To hand / Clear; Sort; each set shows a live label (short form on the table, full form in dialogs). On PC, cards can also be dragged onto a set, New set, the hand, another card, or the discard pile.
+- Counter: "Pure sets n/3" before seeing the joker; afterwards "Unused N" = card points you'd pay now (same automatic arrangement as the real scoring).
+- Show → everyone gets the check dialog ("OK, I've seen them", who has checked) → first shower picks from 16 face-down cards → "You can see the joker now".
+- Declare: needs a second tap ("Tap again to declare"); enabled only when the server would accept it, otherwise the reason is shown.
+- Result: per player saw joker / value points / unused points with the sum / the payment as a sum ("3 + 10 − 2 = 11"); tap a name for their hand as scored (losers: automatic arrangement); Scoreboard; host starts the next round.
+- PC (wide screen): side panel "This round" (last 12 actions) and "Total so far".
+- Menu: Play full screen (also locks landscape on Android), four-colour deck on/off (remembered per device), Install on this phone (when Chrome offers it), Leave table (lobby/between rounds), host: Stop this round.
+- Portrait phone during a game: "Turn your phone sideways" screen with a full-screen button.
+- Connection: reconnects automatically (also straight away when the phone wakes up); moves are never queued while offline (a stale move could land later), the screen says "Reconnecting…" instead. Keep-alive ping every 25 s, answered without waking the server.
+- Installable (PWA): manifest (full screen, landscape, icons incl. maskable), service worker only for the install prompt and an offline start page; game traffic is never cached.
+
+### Checked (2026-10-27, headless Chromium 153)
+- Real game with 3 players (2 touch phones 844×390, 1 PC 1280×720) against the built app in the local Workers runtime: create, join by link, start, draw, discard, take the discard, make a set by tapping, see another player's sets, sort, reload mid-game (same seat and cards), portrait hint, menu. No console errors. Same run passes with `npm run dev`.
+- Show / acknowledge / pick / seen joker / declare / result screens: real engine views fed to the real app; buttons send the right messages.
+- 7 sets of 3 fit on an 844-px-wide phone; on 740 px the "New set" button scrolls into view.
+
+### Not done / known limits
+- Not yet tried on a real Android phone, nor the install prompt (needs the deployed https site).
+- Touch drag: phones use tap only (as decided); drag is PC (mouse) only.
+- "Show" shows your first 3 pure sets; there's no picker (any 3 count, SPEC 6b).
+- No sound or vibration on "your turn" yet.

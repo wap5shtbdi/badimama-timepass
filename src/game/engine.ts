@@ -75,6 +75,8 @@ export interface RoundState {
   show: PendingShow | null;
   awaitingPick: string | null;
   lastAction: LastAction | null;
+  /** Recent actions this round, oldest first (the "This round" log). */
+  events: LastAction[];
 }
 
 export interface TableState {
@@ -234,6 +236,7 @@ function startRound(state: TableState, playerId: string, env: EngineEnv): void {
     show: null,
     awaitingPick: null,
     lastAction: null,
+    events: [],
   };
   state.result = null;
   state.phase = 'playing';
@@ -269,6 +272,15 @@ function requireHand(round: RoundState, playerId: string): Hand {
 
 function nameOf(state: TableState, id: string): string {
   return state.players.find((p) => p.id === id)?.name ?? 'Someone';
+}
+
+export const EVENTS_MAX = 12;
+
+function record(round: RoundState, action: LastAction): void {
+  round.lastAction = action;
+  round.events ??= [];
+  round.events.push(action);
+  if (round.events.length > EVENTS_MAX) round.events.splice(0, round.events.length - EVENTS_MAX);
 }
 
 /** Turn actions (draw, discard, declare) wait while a show is being checked or the joker picked. */
@@ -367,12 +379,12 @@ function draw(state: TableState, playerId: string, from: unknown, env: EngineEnv
   if (from === 'stock') {
     const reshuffled = ensureStock(round, env.random);
     hand.loose.push(round.stock.pop() as Card);
-    round.lastAction = { by: playerId, kind: 'drewStock', reshuffled };
+    record(round, { by: playerId, kind: 'drewStock', reshuffled });
   } else if (from === 'discard') {
     const card = round.discard.pop();
     if (!card) fail('The discard pile is empty');
     hand.loose.push(card);
-    round.lastAction = { by: playerId, kind: 'drewDiscard', card };
+    record(round, { by: playerId, kind: 'drewDiscard', card });
   } else {
     fail('Draw from the stock or the discard pile');
   }
@@ -388,7 +400,7 @@ function discard(state: TableState, playerId: string, cardId: unknown): void {
   const card = takeFromHand(hand, cardId);
   guardMinimum(round, playerId, hand.sets);
   round.discard.push(card);
-  round.lastAction = { by: playerId, kind: 'discarded', card };
+  record(round, { by: playerId, kind: 'discarded', card });
   round.stage = 'draw';
   round.turn = (round.turn + 1) % round.seats.length;
 }
@@ -420,7 +432,7 @@ function show(state: TableState, playerId: string, setIndexes: unknown): void {
   }
   round.show = { by: playerId, sets: structuredClone(chosen), acks: [] };
   round.shown.push(playerId);
-  round.lastAction = { by: playerId, kind: 'showed' };
+  record(round, { by: playerId, kind: 'showed' });
 }
 
 function ack(state: TableState, playerId: string): void {
@@ -438,7 +450,7 @@ function ack(state: TableState, playerId: string): void {
     round.awaitingPick = pending.by;
   } else {
     round.seen.push(pending.by);
-    round.lastAction = { by: pending.by, kind: 'sawJoker' };
+    record(round, { by: pending.by, kind: 'sawJoker' });
   }
 }
 
@@ -453,7 +465,7 @@ function pickJoker(state: TableState, playerId: string, index: unknown, env: Eng
   round.pickedBy = playerId;
   round.awaitingPick = null;
   round.seen.push(playerId);
-  round.lastAction = { by: playerId, kind: 'sawJoker' };
+  record(round, { by: playerId, kind: 'sawJoker' });
 }
 
 // ---------- Declare and settle (SPEC 5, 6) ----------
@@ -545,6 +557,7 @@ export function viewFor(state: TableState, playerId: string | null, connected: R
       hand: mine ? structuredClone(mine) : null,
       joker: playerId && round.seen.includes(playerId) ? round.picked : null,
       jokerPicked: round.picked !== null,
+      pickedBy: round.pickedBy,
       show: pending
         ? {
             by: pending.by,
@@ -555,6 +568,7 @@ export function viewFor(state: TableState, playerId: string | null, connected: R
         : null,
       awaitingPick: round.awaitingPick,
       lastAction: round.lastAction,
+      events: [...(round.events ?? [])],
     };
   }
 

@@ -74,10 +74,14 @@ export interface RoundView {
   /** The picked joker card, only if YOU have seen it. */
   joker: Card | null;
   jokerPicked: boolean;
+  /** Who picked the joker (public: everyone saw them show first). */
+  pickedBy: string | null;
   show: ShowView | null;
   /** Player who must pick the joker now (everyone acknowledged their first show). */
   awaitingPick: string | null;
   lastAction: LastAction | null;
+  /** Recent actions this round, oldest first (up to 12). */
+  events: LastAction[];
 }
 
 export type LastAction =

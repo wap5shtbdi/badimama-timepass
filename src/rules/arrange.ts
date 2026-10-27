@@ -11,8 +11,8 @@ export interface Arrangement {
   loose: Card[];
 }
 
-/** Largest hand we arrange (22 = 21 + a drawn card). Keeps bitmasks well inside 32 bits. */
-export const MAX_ARRANGE = 24;
+/** Largest hand we arrange. Real hands have at most 22 cards; bitmasks are safe up to 30. */
+export const MAX_ARRANGE = 30;
 
 /**
  * Arrange `cards` into valid sets so the unused card sum (jokers removed) is as small as possible.
