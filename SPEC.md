@@ -65,7 +65,12 @@ Mockups: Design canvas "Marriage card game mockups" (claude.ai artifact HeghxSFR
 - Ace/King jokers wrap: joker A♥ → K♥ and 2♥ are value cards/jokers; joker K♥ → Q♥ and A♥.
 - A set made only of jokers (e.g. 6♥ 7♠ 8♥) IS allowed after seeing the joker (corrected by Vikram).
   - It does NOT count toward the minimum 3 (confirmed). Base logic (Vikram): "to be able to see or use a joker you must have 3 sets."
-  - OPEN-27: by that logic, should same-suit sequences WITH a joker (4♠ 5♠ + 7♣) also stop counting? Earlier answer was "yes, they count". Engine still counts them until confirmed.
+- MINIMUM-3 RULE, FINAL (confirmed 2026-10-27, supersedes earlier answers):
+  - The 3 sets may not use jokers. Only natural sets count: pure sequences and identical trails.
+  - Natural sets made of joker cards still count: 6♥7♥8♥ (pure sequence), 6♥6♥6♥ (trail of surrounding cards), 7♠7♠7♠.
+  - Do NOT count: sequences that need a joker (4♠ 5♠ + 7♣), mixed-suit trails (with or without joker), all-joker sets.
+  - A player may break one of these sets only if they still have 3 in place (e.g. after making another pure set).
+  - Same test as for showing: the 3 sets you show are the 3 sets you must keep (any 3 natural sets).
 
 ## 7. Technical decisions (confirmed 2026-10-27)
 - Installable web app (PWA): home-screen icon, full screen, landscape. Works on Android Chrome and PC. No APK for v1.
@@ -103,8 +108,7 @@ Mockups: Design canvas "Marriage card game mockups" (claude.ai artifact HeghxSFR
 - Seeing others' sets (confirmed): tap a player's name to see ALL the sets they currently have, live, whether or not they have shown yet. Cards in hand are NEVER visible to others.
   - Server sends other players' sets to everyone, never their in-hand cards.
 - Minimum-3 rule (confirmed): once a player has seen the joker, the game blocks any move that would leave them with fewer than 3 valid sets. Message shown; move undone.
-  - Any valid set counts EXCEPT mixed-suit trails (7♠ 7♥ 7♦), with or without jokers.
-  - Same-suit sequences using jokers (4♠ 5♠ + 7♣) do count (confirmed).
+  - SUPERSEDED: see "MINIMUM-3 RULE, FINAL" in section 6b. Only natural sets (no jokers) count.
 - Jokers can NEVER complete a suited (identical) trail: K♣ K♣ + 7♠ is not a valid set (confirmed). Shown as "! No jokers in a suited trail".
   - A joker CAN complete a mixed-suit trail (K♣ K♦ + 7♠) (confirmed). Valid set, but doesn't count toward the minimum 3.
 

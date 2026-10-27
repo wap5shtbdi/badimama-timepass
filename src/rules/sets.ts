@@ -17,7 +17,11 @@ export interface SetCheck {
   reason?: string;
   /** Pure sequence or identical trail: can be used to show (see the joker). */
   pure: boolean;
-  /** Counts toward the "always keep 3 sets" rule after seeing the joker. */
+  /**
+   * Counts toward the "always keep 3 sets" rule after seeing the joker.
+   * Always equal to `pure`: only natural sets (pure sequences, identical trails) count, even when
+   * made of joker cards (6♥7♥8♥, 6♥6♥6♥). Sets that need a wildcard never count.
+   */
   countsForMinimum: boolean;
   /** Exactly low + tiplu + high of the joker suit (display label only; scoring is separate). */
   isMarriage: boolean;
@@ -117,7 +121,8 @@ export function checkSet(cards: Card[], picked: Card | null): SetCheck {
   }
 
   if (allSameSuit(naturals) && fitsWithJokers(naturals.map((c) => c.rank), cards.length)) {
-    return { valid: true, kind: 'sequenceWithJoker', pure: false, countsForMinimum: true, isMarriage: false };
+    // Valid, but does NOT count toward the minimum 3: those sets may not rely on jokers (confirmed).
+    return { valid: true, kind: 'sequenceWithJoker', pure: false, countsForMinimum: false, isMarriage: false };
   }
 
   return INVALID('Not a valid set');

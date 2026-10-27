@@ -130,8 +130,8 @@ describe('sets after seeing the joker (7♥)', () => {
     expect(checkSet(c('KC KC 7S'), J).valid).toBe(false);
   });
 
-  it('same-suit sequence with a joker is valid and counts', () => {
-    expect(checkSet(c('4S 5S 7C'), J)).toMatchObject({ valid: true, kind: 'sequenceWithJoker', countsForMinimum: true });
+  it('same-suit sequence with a joker is valid but does not count toward the minimum', () => {
+    expect(checkSet(c('4S 5S 7C'), J)).toMatchObject({ valid: true, kind: 'sequenceWithJoker', countsForMinimum: false });
     expect(checkSet(c('2H 3H 7C'), J).valid).toBe(true);
     expect(checkSet(c('4S 6S 8H'), J).valid).toBe(true); // 8♥ fills the 5
   });
@@ -142,9 +142,17 @@ describe('sets after seeing the joker (7♥)', () => {
 });
 
 describe('minimum 3 counting sets after seeing the joker', () => {
-  it('passes with 3 counting sets, fails when a mixed-suit trail is the third', () => {
-    expect(meetsMinimum([c('4S 5S 6S'), c('9D 10D JD'), c('2H 3H 7C')], J)).toBe(true);
+  it('only natural sets count: pure sequences and identical trails, even of joker cards', () => {
+    expect(meetsMinimum([c('4S 5S 6S'), c('9D 10D JD'), c('KC KC KC')], J)).toBe(true);
+    expect(meetsMinimum([c('4S 5S 6S'), c('9D 10D JD'), c('6H 7H 8H')], J)).toBe(true); // pure, of value cards
+    expect(meetsMinimum([c('4S 5S 6S'), c('9D 10D JD'), c('6H 6H 6H')], J)).toBe(true); // trail of surrounding cards
+    expect(meetsMinimum([c('4S 5S 6S'), c('9D 10D JD'), c('7S 7S 7S')], J)).toBe(true); // trail of jokers
+  });
+
+  it('sets that need a joker, mixed-suit trails and all-joker sets do not count', () => {
+    expect(meetsMinimum([c('4S 5S 6S'), c('9D 10D JD'), c('2H 3H 7C')], J)).toBe(false);
     expect(meetsMinimum([c('4S 5S 6S'), c('9D 10D JD'), c('JS JD JH')], J)).toBe(false);
+    expect(meetsMinimum([c('4S 5S 6S'), c('9D 10D JD'), c('6H 7S 8H')], J)).toBe(false);
   });
 });
 
