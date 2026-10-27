@@ -247,7 +247,7 @@ function Table({ code, name, go }: { code: string; name: string; go: (to: string
       {view.phase === 'playing' && (
         <Game view={view} conn={conn} fourColor={fourColor} wide={wide} onOpenPlayer={setPlayerSheet} onOpenMenu={() => setMenu(true)} />
       )}
-      {view.phase === 'roundOver' && <Result view={view} conn={conn} fourColor={fourColor} />}
+      {view.phase === 'roundOver' && <Result view={view} conn={conn} fourColor={fourColor} onLeave={leave} />}
 
       {view.phase !== 'playing' && (
         <button type="button" className="icon-btn menu-corner" aria-label="Menu" onClick={() => setMenu(true)}>

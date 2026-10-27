@@ -48,6 +48,8 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
   const toggle = (id: string) =>
     setSelection((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s.filter((x) => held.has(x)), id]));
   const clearSel = () => setSelection([]);
+  const inSets = useMemo(() => new Set(hand ? hand.sets.flat().map((c) => c.id) : []), [hand]);
+  const selInSet = sel.some((id) => inSets.has(id));
 
   // Declare needs a second tap (it ends the round).
   const [confirmDeclare, setConfirmDeclare] = useState(false);
@@ -90,7 +92,11 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
       : null;
   const declareCheck = (() => {
     if (!seen || !myTurn || waiting) return null;
-    if (round.stage === 'draw') return canDeclare(hand.sets, hand.loose, joker);
+    if (round.stage === 'draw') {
+      // Before drawing, only offer it when it would work (rare: all 21 cards already in sets).
+      const c = canDeclare(hand.sets, hand.loose, joker);
+      return c.ok ? c : null;
+    }
     if (!putDown) {
       return hand.loose.length > 1
         ? { ok: false, reason: 'Put all cards but one into sets' }
@@ -165,37 +171,29 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
         <div className="game-main">
           {/* Middle row: piles, joker, actions */}
           <div className="table-row">
-            <div className="pile">
-              <CardBack
-                size="md"
-                label={canDraw ? `Draw from the stock, ${round.stockCount} cards` : `Stock, ${round.stockCount} cards`}
-                onTap={canDraw ? () => conn.send({ type: 'draw', from: 'stock' }) : undefined}
-                raised={canDraw}
+            <div className="stock-spot">
+              <StockStack
+                count={round.stockCount}
+                canDraw={canDraw}
+                onDraw={() => conn.send({ type: 'draw', from: 'stock' })}
               />
-              <span className="pile-label">Stock · {round.stockCount}</span>
-            </div>
-            <div
-              className={`pile${canDiscard && draggable ? ' is-drop' : ''}`}
-              onDragOver={canDiscard ? allowDrop : undefined}
-              onDrop={canDiscard ? dropOn((ids) => ids.length === 1 && discard(ids[0] as string)) : undefined}
-            >
-              {round.discardTop ? (
-                <span className={canDraw ? 'pile-take' : undefined}>
-                  <Card
-                    card={round.discardTop}
-                    size="md"
-                    joker={joker}
-                    fourColor={fourColor}
-                    onTap={canDraw ? () => conn.send({ type: 'draw', from: 'discard' }) : undefined}
-                  />
-                </span>
-              ) : (
-                <span className="card card-md card-empty" aria-label="Discard pile is empty" role="img" />
-              )}
-              <span className="pile-label">{canDraw && round.discardTop ? 'Tap to take' : 'Discard'}</span>
+              <span className="spot-label">Stock · {round.stockCount}</span>
+              {canDraw && <span className="spot-hint">Tap to draw</span>}
             </div>
 
             <JokerPanel view={view} joker={joker} fourColor={fourColor} myValue={myValue} />
+
+            <DiscardPile
+              cards={round.discardRecent}
+              total={round.discardCount}
+              joker={joker}
+              fourColor={fourColor}
+              canTake={canDraw}
+              onTake={() => conn.send({ type: 'draw', from: 'discard' })}
+              dropTarget={canDiscard && draggable}
+              onDragOver={canDiscard ? allowDrop : undefined}
+              onDrop={canDiscard ? dropOn((ids) => ids.length === 1 && discard(ids[0] as string)) : undefined}
+            />
 
             <div className="actions" aria-live="polite">
               {round.show && round.show.by === view.you && (
@@ -215,8 +213,8 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
                   Discard {cardText(putDown)}
                 </button>
               )}
-              {canDiscard && sel.length !== 1 && !canShowNow && <p className="hint">Tap a card, then Discard</p>}
-              {canDraw && !canShowNow && <p className="hint">Tap the stock or the discard pile</p>}
+              {canDiscard && sel.length === 0 && !canShowNow && <p className="hint">Tap a card, then Discard</p>}
+              {canDraw && sel.length === 0 && !canShowNow && <p className="hint">Draw from the stock, or take the top card of the pile</p>}
               {declareCheck && (
                 <button
                   type="button"
@@ -228,7 +226,7 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
                   {confirmDeclare ? 'Tap again to declare' : 'Declare'}
                 </button>
               )}
-              {declareCheck && !declareCheck.ok && round.stage === 'discard' && sel.length <= 1 && (
+              {declareCheck && !declareCheck.ok && round.stage === 'discard' && sel.length === 0 && (
                 <p className="hint small">{declareCheck.reason}</p>
               )}
               {!myTurn && !waiting && lastEvent && !wide && <p className="hint">{eventText(view, lastEvent)}</p>}
@@ -238,9 +236,11 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
                   <button type="button" className="btn btn-small" onClick={() => apply(newSet(hand, sel))}>
                     New set
                   </button>
-                  <button type="button" className="btn btn-small" onClick={() => apply(toHand(hand, sel))}>
-                    To hand
-                  </button>
+                  {selInSet && (
+                    <button type="button" className="btn btn-small" onClick={() => apply(toHand(hand, sel))}>
+                      Break set
+                    </button>
+                  )}
                   <button type="button" className="btn btn-small btn-ghost" onClick={clearSel}>
                     Clear
                   </button>
@@ -332,8 +332,11 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
                   </>
                 )}
               </span>
-              <button type="button" className="btn btn-small btn-ghost" onClick={() => apply(sortLoose(hand))}>
-                Sort
+              <button type="button" className="sort-btn" onClick={() => apply(sortLoose(hand))}>
+                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4" />
+                </svg>
+                <span>Sort</span>
               </button>
             </div>
           </section>
@@ -402,27 +405,96 @@ function EyeIcon() {
   );
 }
 
-// ---------- Joker panel ----------
+// ---------- Stock, joker and the discard pile ----------
+
+function StockStack({ count, canDraw, onDraw }: { count: number; canDraw: boolean; onDraw: () => void }) {
+  return (
+    <span className="stock-stack">
+      {count > 2 && <span className="card card-md card-back stack-under stack-2" aria-hidden="true" />}
+      {count > 1 && <span className="card card-md card-back stack-under stack-1" aria-hidden="true" />}
+      <CardBack
+        size="md"
+        label={canDraw ? `Draw from the stock, ${count} cards` : `Stock, ${count} cards`}
+        onTap={canDraw ? onDraw : undefined}
+        raised={canDraw}
+      />
+    </span>
+  );
+}
+
+/** Small stable number from a card id, so a card keeps its spot and angle in the pile. */
+function hash(id: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
+  return (h >>> 0) / 4294967296;
+}
+
+/** The discard pile in the middle of the table, thrown roughly like on a real table. */
+function DiscardPile({
+  cards,
+  total,
+  joker,
+  fourColor,
+  canTake,
+  onTake,
+  dropTarget,
+  onDragOver,
+  onDrop,
+}: {
+  cards: CardT[];
+  total: number;
+  joker: CardT | null;
+  fourColor: boolean;
+  canTake: boolean;
+  onTake: () => void;
+  dropTarget: boolean;
+  onDragOver?: (e: DragEvent) => void;
+  onDrop?: (e: DragEvent) => void;
+}) {
+  return (
+    <div className={`mat${dropTarget ? ' is-drop' : ''}`} onDragOver={onDragOver} onDrop={onDrop}>
+      {cards.length === 0 && <span className="mat-empty">Discard pile is empty</span>}
+      {cards.map((c, i) => {
+        const top = i === cards.length - 1;
+        const a = hash(c.id);
+        const b = hash(c.id + '*');
+        // Older throws spread out; the top card lands near the middle.
+        const spread = top ? 0.12 : 1;
+        const x = (a - 0.5) * 2.6 * spread; // in card widths
+        const y = (b - 0.5) * 0.35 * spread; // in card heights
+        const rot = (hash(c.id + '/') - 0.5) * (top ? 12 : 40);
+        return (
+          <span
+            key={c.id}
+            className={`mat-card${top && canTake ? ' pile-take' : ''}`}
+            style={{ transform: `translate(calc(-50% + ${x} * var(--md-w)), calc(-50% + ${y} * var(--md-h))) rotate(${rot}deg)`, zIndex: i }}
+          >
+            <Card card={c} size="md" joker={joker} fourColor={fourColor} onTap={top && canTake ? onTake : undefined} />
+          </span>
+        );
+      })}
+      <span className="sr-only">Discard pile, {total} cards</span>
+    </div>
+  );
+}
 
 function JokerPanel({ view, joker, fourColor, myValue }: { view: TableView; joker: CardT | null; fourColor: boolean; myValue: number }) {
   const round = view.round!;
   if (joker) {
     const low = cardText({ rank: rankBelow(joker.rank), suit: joker.suit });
     const high = cardText({ rank: rankAbove(joker.rank), suit: joker.suit });
-    const all = rankLabel(joker.rank);
     return (
       <div className="joker-panel">
         <span className="joker-card">
           <Card card={joker} size="md" joker={null} fourColor={fourColor} />
         </span>
         <div className="joker-text">
-          <strong>Joker {cardText(joker)}</strong>
+          <span className="joker-kicker">JOKER</span>
+          <strong>{cardText(joker)}</strong>
           <span>
-            All {all}s, {low} and {high} are jokers
+            Wild: all {rankLabel(joker.rank)}s, {low}, {high}
           </span>
-          <span>
-            Value: {low} {cardText(joker)} {high} · you have {myValue}
-          </span>
+          <span>Your value: {myValue}</span>
         </div>
       </div>
     );
@@ -433,9 +505,10 @@ function JokerPanel({ view, joker, fourColor, myValue }: { view: TableView; joke
         ?
       </span>
       <div className="joker-text">
-        <strong>Joker hidden</strong>
-        <span>{round.jokerPicked ? `Picked by ${nameOf(view, round.pickedBy)}` : 'Show 3 pure sequences'}</span>
-        <span>{round.jokerPicked ? 'Show 3 pure sets to see it' : 'or trails to see it'}</span>
+        <span className="joker-kicker">JOKER</span>
+        <strong>Hidden</strong>
+        <span>{round.jokerPicked ? `Picked by ${nameOf(view, round.pickedBy)}` : 'Not picked yet'}</span>
+        <span>Show 3 pure sets to see it</span>
       </div>
     </div>
   );

@@ -424,41 +424,77 @@ button.card {
   padding: 0 12px 8px;
 }
 .table-row {
+  --stock-w: calc(var(--md-w) + 26px);
+  --joker-w: calc(var(--md-w) + 140px);
+  --mat-w: calc(var(--md-w) * 4.2);
+  --mat-h: calc(var(--md-h) * 1.5);
+  /* Where the stock and joker end: the pile sits in the middle of the screen, or just right of them. */
+  --left-end: calc(var(--stock-w) + var(--joker-w) + 28px);
+  position: relative;
   flex: 1;
   min-height: 0;
   display: flex;
   align-items: center;
   gap: 14px;
 }
-.pile {
+.stock-spot {
+  width: var(--stock-w);
+  flex: none;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  border-radius: 10px;
+  padding: 8px 0;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.16);
 }
-.pile.is-drop {
-  outline: 2px dashed var(--dash);
-  outline-offset: 4px;
+.stock-stack {
+  position: relative;
+  display: inline-flex;
+  margin: 0 6px 4px 0;
+}
+.stack-under {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.stack-1 {
+  transform: translate(3px, 2px);
+  background: #6a1f29;
+}
+.stack-2 {
+  transform: translate(6px, 4px);
+  background: #5a1a23;
+}
+.stock-stack > button,
+.stock-stack > span:last-child {
+  position: relative;
+}
+.spot-label {
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.spot-hint {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gold);
 }
 .pile-take .card {
   box-shadow:
     0 0 0 3px var(--gold),
-    0 4px 8px rgba(0, 0, 0, 0.35);
-}
-.pile-label {
-  font-size: 12px;
-  color: var(--muted);
-  white-space: nowrap;
+    0 6px 12px rgba(0, 0, 0, 0.45);
 }
 .joker-panel {
+  width: var(--joker-w);
+  flex: none;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 12px 6px 6px;
+  padding: 6px 10px 6px 6px;
   border-radius: 12px;
-  background: rgba(0, 0, 0, 0.22);
-  min-width: 0;
+  background: rgba(0, 0, 0, 0.16);
+  border: 1px solid var(--line);
 }
 .joker-card .card {
   box-shadow: 0 0 0 3px var(--gold);
@@ -471,18 +507,70 @@ button.card {
   color: var(--muted);
   min-width: 0;
 }
+.joker-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
 .joker-text strong {
   font-size: 15px;
   color: var(--gold);
 }
+.mat {
+  position: absolute;
+  left: max(50%, calc(var(--left-end) + var(--mat-w) / 2));
+  top: 50%;
+  width: var(--mat-w);
+  height: var(--mat-h);
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.2);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+.mat.is-drop {
+  outline: 2px dashed var(--dash);
+  outline-offset: 4px;
+}
+.mat-card {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+}
+.mat-card .card {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+}
+.mat-card.pile-take .card {
+  box-shadow:
+    0 0 0 3px var(--gold),
+    0 6px 12px rgba(0, 0, 0, 0.45);
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.mat-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--muted);
+}
 .actions {
+  position: relative;
+  z-index: 1;
   margin-left: auto;
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 6px;
   min-width: 160px;
-  max-width: 260px;
+  max-width: 210px;
 }
 .hint {
   font-size: 13px;
@@ -502,6 +590,10 @@ button.card {
 .show-ready strong {
   color: var(--gold);
   font-size: 14px;
+}
+.sel-tools .btn {
+  white-space: nowrap;
+  padding: 0 9px;
 }
 .sel-tools {
   display: grid;
@@ -591,6 +683,8 @@ button.card {
   border-style: dashed;
 }
 .set-add {
+  white-space: nowrap;
+  flex: none;
   border: none;
   border-radius: 6px;
   background: var(--gold);
@@ -627,6 +721,20 @@ button.card {
   align-items: flex-end;
   gap: 4px;
   padding-bottom: 6px;
+}
+.sort-btn {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 2px solid var(--cream);
+  border-radius: 22px;
+  background: rgba(245, 241, 230, 0.14);
+  color: var(--cream);
+  font-size: 15px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
 }
 .counter {
   font-size: 12px;
@@ -852,6 +960,14 @@ button.card {
   display: flex;
   flex-direction: column;
 }
+.btn-leave {
+  background: transparent;
+  border: 2px solid var(--muted);
+  color: var(--cream);
+}
+.leave-note {
+  max-width: 260px;
+}
 .result-foot {
   display: flex;
   align-items: center;
@@ -1005,6 +1121,16 @@ button.card {
 
 /* Short landscape phones: tighter. */
 @media (max-height: 420px) {
+  .stock-spot {
+    padding: 4px 0;
+    gap: 1px;
+  }
+  .spot-hint {
+    display: none; /* the gold glow on the stock already says it */
+  }
+  .actions .btn {
+    min-height: 38px;
+  }
   .topbar {
     height: 46px;
   }

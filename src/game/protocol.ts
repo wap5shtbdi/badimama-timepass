@@ -68,6 +68,8 @@ export interface RoundView {
   stage: Stage;
   stockCount: number;
   discardTop: Card | null;
+  /** The last few discards, oldest first, top card last (drawn as a messy pile). */
+  discardRecent: Card[];
   discardCount: number;
   /** Your own cards. Null if you're not in this round. */
   hand: { sets: Card[][]; loose: Card[] } | null;

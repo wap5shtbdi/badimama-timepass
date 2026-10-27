@@ -94,6 +94,8 @@ export interface TableState {
   totals: Record<string, number>;
   /** Who deals the next round: the last declarer (confirmed). Null before the first round. */
   nextDealer: string | null;
+  /** Players who left between rounds: coming back with the same token restores their id and total. */
+  departed?: Player[];
   /** Bumped on every accepted change. */
   rev: number;
 }
@@ -158,9 +160,18 @@ export function join(state: TableState, token: unknown, name: unknown, env: Engi
     if (cleanName) existing.name = cleanName;
     return existing.id;
   }
-  if (!cleanName) fail('Please enter your name');
   if (state.phase === 'playing') fail('A round is being played. You can join when it ends.');
   if (state.players.length >= MAX_PLAYERS) fail(`The table is full (${MAX_PLAYERS} players)`);
+  // Back after leaving: same player id, so the running total is kept (confirmed 2026-10-27).
+  const back = state.departed?.find((p) => p.token === token);
+  if (back) {
+    state.departed = state.departed!.filter((p) => p !== back);
+    if (cleanName) back.name = cleanName;
+    state.players.push(back);
+    state.hostId ??= back.id;
+    return back.id;
+  }
+  if (!cleanName) fail('Please enter your name');
   const player: Player = { id: env.newId(), token, name: cleanName };
   state.players.push(player);
   state.totals[player.id] ??= 0;
@@ -244,7 +255,9 @@ function startRound(state: TableState, playerId: string, env: EngineEnv): void {
 
 function leave(state: TableState, playerId: string): void {
   if (state.phase === 'playing') fail("You can't leave in the middle of a round");
+  const leaving = state.players.find((p) => p.id === playerId);
   state.players = state.players.filter((p) => p.id !== playerId);
+  if (leaving) (state.departed ??= []).push(leaving);
   if (state.hostId === playerId) state.hostId = state.players[0]?.id ?? null;
 }
 
@@ -275,6 +288,8 @@ function nameOf(state: TableState, id: string): string {
 }
 
 export const EVENTS_MAX = 12;
+/** Discards shown on the table: the top card plus 4 earlier throws (public: everyone saw them). */
+export const DISCARD_SHOWN = 5;
 
 function record(round: RoundState, action: LastAction): void {
   round.lastAction = action;
@@ -553,6 +568,7 @@ export function viewFor(state: TableState, playerId: string | null, connected: R
       stage: round.stage,
       stockCount: round.stock.length,
       discardTop: round.discard[round.discard.length - 1] ?? null,
+      discardRecent: round.discard.slice(-DISCARD_SHOWN),
       discardCount: round.discard.length,
       hand: mine ? structuredClone(mine) : null,
       joker: playerId && round.seen.includes(playerId) ? round.picked : null,

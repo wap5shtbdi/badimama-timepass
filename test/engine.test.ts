@@ -145,6 +145,19 @@ describe('lobby', () => {
     expect(g.state.phase).toBe('playing');
   });
 
+  it('leaving and coming back keeps the same player and running total', () => {
+    const g = new Game(3);
+    g.state.totals[g.ids[1]!] = 34;
+    g.state.phase = 'roundOver';
+    g.do(1, { type: 'leave' });
+    expect(g.state.players.map((p) => p.name)).toEqual(['Vikram', 'Dad']);
+    const back = g.join(1, 'Mom');
+    expect(back).toBe(g.ids[1]);
+    expect(g.state.totals[back]).toBe(34);
+    expect(g.view(1).players.find((p) => p.id === back)!.total).toBe(34);
+    expect(g.state.departed).toEqual([]);
+  });
+
   it('leaving passes the host role on; not allowed mid-round', () => {
     const g = new Game(3);
     g.do(0, { type: 'leave' });
@@ -203,6 +216,8 @@ describe('dealing and turns', () => {
     expect(g.turnPlayer()).toBe(2);
     expect(g.round.lastAction).toEqual({ by: g.ids[1], kind: 'discarded', card });
     expect(g.view(0).round!.events.map((e) => e.kind)).toEqual(['drewStock', 'discarded']);
+    expect(g.view(0).round!.discardRecent.at(-1)).toEqual(card);
+    expect(g.view(0).round!.discardRecent).toHaveLength(2);
     expect(countAllCards(g.state)).toBe(156);
   });
 
@@ -225,6 +240,7 @@ describe('dealing and turns', () => {
       g.do(p, { type: 'discard', cardId: g.hand(p).loose[0]!.id });
     }
     expect(g.round.events).toHaveLength(12);
+    expect(g.view(0).round!.discardRecent).toHaveLength(5);
     expect(g.round.events.at(-1)).toEqual(g.round.lastAction);
   });
 

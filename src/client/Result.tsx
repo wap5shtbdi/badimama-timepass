@@ -1,6 +1,6 @@
 // Round result (mockup "round result"): value points and card points shown separately.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ResultRow, TableView } from '../game/protocol';
 import { Card } from './Card';
 import { cardText } from './cards';
@@ -9,7 +9,13 @@ import { setLabel, sortGroup } from './hand';
 import { signed } from './text';
 import type { TableConnection } from './useTable';
 
-export function Result({ view, conn, fourColor }: { view: TableView; conn: TableConnection; fourColor: boolean }) {
+export function Result({ view, conn, fourColor, onLeave }: { view: TableView; conn: TableConnection; fourColor: boolean; onLeave: () => void }) {
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  useEffect(() => {
+    if (!confirmLeave) return;
+    const t = setTimeout(() => setConfirmLeave(false), 3000);
+    return () => clearTimeout(t);
+  }, [confirmLeave]);
   const result = view.result!;
   const [openRow, setOpenRow] = useState<ResultRow | null>(null);
   const [scoreboard, setScoreboard] = useState(false);
@@ -82,7 +88,21 @@ export function Result({ view, conn, fourColor }: { view: TableView; conn: Table
       <div className="grow" />
 
       <div className="result-foot">
-        <span className="muted small">Tap a name to see their hand</span>
+        {view.you && (
+          <button
+            type="button"
+            className={`btn ${confirmLeave ? 'btn-danger' : 'btn-leave'}`}
+            onClick={() => (confirmLeave ? onLeave() : setConfirmLeave(true))}
+          >
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4" />
+              <path d="M10 17l-5-5 5-5" />
+              <path d="M5 12h11" />
+            </svg>
+            {confirmLeave ? 'Tap again to leave' : 'Leave table'}
+          </button>
+        )}
+        <span className="muted small leave-note">Your total is kept if you come back on this phone.</span>
         <span className="grow" />
         <button type="button" className="btn btn-outline" onClick={() => setScoreboard(true)}>
           Scoreboard
