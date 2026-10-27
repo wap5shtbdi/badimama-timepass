@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useRef, useState } from 'react';
 import type { TableView } from '../game/protocol';
 import type { Card as CardT } from '../rules';
 import { Card, CardBack } from './Card';
+import { canVibrate } from './alerts';
 import { setLabel } from './hand';
 import { nameOf, signed } from './text';
 import type { Status, TableConnection, Toast } from './useTable';
@@ -199,11 +200,15 @@ export function Menu({
   onLeave,
   onClose,
   install,
+  alerts,
+  onAlerts,
 }: {
   view: TableView;
   conn: TableConnection;
   fourColor: boolean;
   onFourColor: (on: boolean) => void;
+  alerts: { sound: boolean; vibrate: boolean };
+  onAlerts: (next: { sound: boolean; vibrate: boolean }) => void;
   onLeave: () => void;
   onClose: () => void;
   install: (() => void) | null;
@@ -223,6 +228,16 @@ export function Menu({
           <input type="checkbox" checked={fourColor} onChange={(e) => onFourColor(e.target.checked)} />
           <span>Four-colour deck (♦ blue, ♣ green)</span>
         </label>
+        <label className="switch">
+          <input type="checkbox" checked={alerts.sound} onChange={(e) => onAlerts({ ...alerts, sound: e.target.checked })} />
+          <span>Sound when it's my turn</span>
+        </label>
+        {canVibrate() && (
+          <label className="switch">
+            <input type="checkbox" checked={alerts.vibrate} onChange={(e) => onAlerts({ ...alerts, vibrate: e.target.checked })} />
+            <span>Vibrate when it's my turn</span>
+          </label>
+        )}
         {install && (
           <button type="button" className="btn" onClick={install}>
             Install on this phone

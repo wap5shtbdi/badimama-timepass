@@ -5,6 +5,8 @@ const KEY = {
   name: 'bt.name',
   lastTable: 'bt.lastTable',
   fourColor: 'bt.fourColor',
+  sound: 'bt.sound',
+  vibrate: 'bt.vibrate',
 } as const;
 
 function get(key: string): string | null {
@@ -41,3 +43,9 @@ export const lastTable = () => get(KEY.lastTable);
 export const saveLastTable = (code: string) => set(KEY.lastTable, code);
 export const fourColorDeck = () => get(KEY.fourColor) !== 'false';
 export const saveFourColorDeck = (on: boolean) => set(KEY.fourColor, String(on));
+/** "It's your turn" alerts, on unless switched off. */
+export const alertPrefs = () => ({ sound: get(KEY.sound) !== 'false', vibrate: get(KEY.vibrate) !== 'false' });
+export const saveAlertPrefs = (p: { sound: boolean; vibrate: boolean }) => {
+  set(KEY.sound, String(p.sound));
+  set(KEY.vibrate, String(p.vibrate));
+};

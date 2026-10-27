@@ -4,7 +4,8 @@ import { ConnectionBanner, Menu, PickJoker, PlayerSheet, RotateHint, ShowDialog,
 import { Game } from './Game';
 import { Lobby } from './Lobby';
 import { Result } from './Result';
-import { fourColorDeck, lastTable, saveFourColorDeck, saveLastTable, saveName, savedName } from './storage';
+import { alertFor, playAlert } from './alerts';
+import { alertPrefs, fourColorDeck, lastTable, saveAlertPrefs, saveFourColorDeck, saveLastTable, saveName, savedName } from './storage';
 import { useTable } from './useTable';
 
 // ---------- Tiny router: "/" home, "/t/CODE" a table ----------
@@ -185,6 +186,22 @@ function Table({ code, name, go }: { code: string; name: string; go: (to: string
 
   useEffect(() => saveLastTable(code), [code]);
 
+  // "It's your turn" (and "check the shown sets", "pick the joker"): vibrate and/or chime.
+  const [alerts, setAlerts] = useState(alertPrefs());
+  const prevView = useRef<typeof view>(null);
+  useEffect(() => {
+    if (!view) return;
+    const kind = alertFor(prevView.current, view);
+    prevView.current = view;
+    if (kind) playAlert(kind, alerts);
+  }, [view, alerts]);
+
+  // Browser tab title shows when it's your turn (handy on a PC with other tabs open).
+  const myTurn = view?.phase === 'playing' && !!view.you && view.round?.turn === view.you;
+  useEffect(() => {
+    document.title = myTurn ? '● Your turn · Marriage' : 'Marriage';
+  }, [myTurn]);
+
   // Tell me when I can see the joker.
   const me = view?.players.find((p) => p.id === view.you);
   // null until the first view arrives, so opening or reloading the app doesn't announce it.
@@ -251,6 +268,13 @@ function Table({ code, name, go }: { code: string; name: string; go: (to: string
           onFourColor={(on) => {
             setFourColor(on);
             saveFourColorDeck(on);
+          }}
+          alerts={alerts}
+          onAlerts={(next) => {
+            setAlerts(next);
+            saveAlertPrefs(next);
+            if (next.sound && !alerts.sound) playAlert('check', { sound: true, vibrate: false }); // sample
+            if (next.vibrate && !alerts.vibrate) playAlert('check', { sound: false, vibrate: true });
           }}
           onLeave={leave}
           onClose={() => setMenu(false)}

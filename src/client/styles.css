@@ -366,6 +366,20 @@ button.card {
   background: var(--gold);
   color: var(--gold-ink);
 }
+.pill-pulse {
+  animation: pulse 0.9s ease-in-out 3;
+}
+@keyframes pulse {
+  50% {
+    box-shadow: 0 0 0 8px rgba(242, 193, 78, 0.35);
+    transform: scale(1.06);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pill-pulse {
+    animation: none;
+  }
+}
 .chips {
   display: flex;
   gap: 6px;
@@ -685,7 +699,8 @@ button.card {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  padding: 32px 20px 24px;
+  padding: calc(32px + env(safe-area-inset-top)) calc(20px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom))
+    calc(20px + env(safe-area-inset-left));
 }
 .lobby-title h1 {
   font-size: 34px;
@@ -797,8 +812,8 @@ button.card {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 18px 20px 16px;
-  padding-right: 68px;
+  padding: calc(18px + env(safe-area-inset-top)) calc(68px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom))
+    calc(20px + env(safe-area-inset-left));
   overflow-y: auto;
 }
 .result-head {

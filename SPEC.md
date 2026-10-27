@@ -158,6 +158,8 @@ Code: `src/client/` (React). Pure logic in `hand.ts` / `cards.ts` (unit-tested i
 - PC (wide screen): side panel "This round" (last 12 actions) and "Total so far".
 - Menu: Play full screen (also locks landscape on Android), four-colour deck on/off (remembered per device), Install on this phone (when Chrome offers it), Leave table (lobby/between rounds), host: Stop this round.
 - Portrait phone during a game: "Turn your phone sideways" screen with a full-screen button.
+- Your-turn alerts (2026-10-27): when the turn passes to you, when someone shows (you need to check), and when you must pick the joker. Android: vibration + a short chime. iPhone: chime only (websites can't vibrate on iPhone: Safari has no vibration API, and the switch-control haptic workaround needs a real tap and was shut off in iOS 26.5). Plus a pulsing turn banner and "● Your turn" in the browser tab title. Sound and vibration are switches in the menu (remembered per device). Browsers allow sound/vibration only after the person has tapped the page once since opening it; the chime respects the iPhone silent switch.
+- iPhone home screen: Safari → Share → Add to Home Screen (iOS 26+ opens it as a web app). iPhone has no full screen or landscape lock for websites: turn off Portrait Orientation Lock and turn the phone. Name under the icon "Marriage"; status bar blends into the green.
 - Connection: reconnects automatically (also straight away when the phone wakes up); moves are never queued while offline (a stale move could land later), the screen says "Reconnecting…" instead. Keep-alive ping every 25 s, answered without waking the server.
 - Installable (PWA): manifest (full screen, landscape, icons incl. maskable), service worker only for the install prompt and an offline start page; game traffic is never cached.
 
@@ -170,4 +172,4 @@ Code: `src/client/` (React). Pure logic in `hand.ts` / `cards.ts` (unit-tested i
 - Not yet tried on a real Android phone, nor the install prompt (needs the deployed https site).
 - Touch drag: phones use tap only (as decided); drag is PC (mouse) only.
 - "Show" shows your first 3 pure sets; there's no picker (any 3 count, SPEC 6b).
-- No sound or vibration on "your turn" yet.
+- Alerts and the iPhone home-screen setup not yet tried on real phones (checked in headless Chromium only; no Safari engine available here).

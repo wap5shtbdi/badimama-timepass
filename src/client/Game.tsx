@@ -363,7 +363,9 @@ export function TopBar({
   const turn = view.round?.turn;
   return (
     <header className="topbar">
-      <div className={`pill${gold ? ' pill-gold' : ''}`}>{pill}</div>
+      <div key={gold ? 'mine' : 'other'} className={`pill${gold ? ' pill-gold pill-pulse' : ''}`}>
+        {pill}
+      </div>
       <div className="topbar-space" />
       <nav className="chips" aria-label="Players">
         {view.players

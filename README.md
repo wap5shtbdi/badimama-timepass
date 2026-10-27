@@ -25,6 +25,7 @@ npm run deploy     # build and deploy to Cloudflare (run `npx wrangler login` on
 1. `npx wrangler login` (opens the browser, log in to your Cloudflare account).
 2. `npm run deploy`. Wrangler prints the address, e.g. `https://badimama-timepass.<your-subdomain>.workers.dev`.
 3. On each Android phone: open that address in Chrome → menu (⋮) → **Add to home screen / Install app**. It opens full screen and sideways.
+   On an iPhone: open the address in Safari → Share → **Add to Home Screen** (keep "Open as Web App" on). Turn off Portrait Orientation Lock in Control Center and hold the phone sideways.
 4. Create a table, tap **Share invite on WhatsApp**, everyone taps the link.
 
 ## Talking to the table server
