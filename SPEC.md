@@ -1,6 +1,6 @@
 # Marriage (21-card rummy) — family web app spec
 
-Status: v0.5, 2026-10-27. All rules confirmed. Rules confirmed by Vikram unless marked OPEN.
+Status: v0.6, 2026-10-27. All rules confirmed. Table server built; its own decisions are OPEN-15 to OPEN-19 (section 10). Rules confirmed by Vikram unless marked OPEN.
 Goal: playable online with parents (India, Android browser), Vikram (Paris, PC), sometimes sister. Target: playable by weekend of 2026-10-31.
 Mockups: Design canvas "Marriage card game mockups" (claude.ai artifact HeghxSFRmevPtwZEn8wWdF).
 
@@ -48,7 +48,7 @@ Mockups: Design canvas "Marriage card game mockups" (claude.ai artifact HeghxSFR
 ## 5. Winning (confirmed)
 - A player who has seen the joker arranges all 21 cards into sets of 3+ and declares.
 
-## 6. Settlement (confirmed except OPEN-13/14)
+## 6. Settlement (confirmed)
 - Card values: A, K, Q, J = 10 each; 2–10 = face value.
 - Jokers (all 7s, 6♥, 8♥ in the example) are removed before summing.
 - Card points = sum ÷ 10, rounded half down (23 → 2, 25 → 2, 26 → 3), capped at 10.
@@ -82,6 +82,8 @@ Mockups: Design canvas "Marriage card game mockups" (claude.ai artifact HeghxSFR
   - Client: React + Vite, Cloudflare Vite plugin (page + server in one Worker); partysocket for auto-reconnect.
   - Touch drag: custom pointer-event code; tap-to-select is the primary method on phones. (@dnd-kit/core last release Dec 2024; @dnd-kit/react is pre-1.0.)
   - Versions checked 2026-10-27: react 19.3.1, vite 8.3.5, @cloudflare/vite-plugin 1.65.0, wrangler 4.154.0, partysocket 1.3.0, typescript 7.0.2, vitest 5.0.5.
+  - Server tests run in the Workers runtime with @cloudflare/vitest-plugin 1.4.9 (renamed from @cloudflare/vitest-pool-workers on 2026-08-19; the old package only supports Vitest 4). Worker types come from `wrangler types` (run automatically on npm install), not @cloudflare/workers-types.
+  - compatibility_date 2026-10-23: since 2026-04-07 the runtime answers WebSocket close frames itself. Attachments per socket max 16 KiB (we store only the player id).
 - boardgame.io REJECTED: npm latest 0.50.2, published 2022-11-10.
 - Voice: WhatsApp call alongside for v1.
 - Repo: github.com/wap5shtbdi/badimama-timepass (private). Hosting: Vikram's Cloudflare account (created 2026-10-27).
@@ -115,3 +117,26 @@ Mockups: Design canvas "Marriage card game mockups" (claude.ai artifact HeghxSFR
 ## 9. Hosting options (verified 2026-10-27)
 - Render free web service: spins down after 15 min with no HTTP request or WebSocket message (changelog 2026-02-24). In-memory game lost on spin-down.
 - Cloudflare Workers + Durable Objects, Free plan: SQLite backend; 100k requests/day; WebSocket hibernation avoids duration charges; incoming WS messages billed 20:1. One Durable Object per table, state persisted.
+
+## 10. Table server (built 2026-10-27)
+Code: `src/game/engine.ts` (all game logic, pure TS), `src/game/protocol.ts` (messages), `src/server/` (Worker + Durable Object).
+
+### How it works
+- `POST /api/tables` → new table, 4-character code (alphabet without 0/O/1/I/L, so it can be read out on a call). `GET /api/tables/CODE` → table info. `GET /api/tables/CODE/ws` → WebSocket.
+- One Durable Object per table (SQLite-backed, Free plan). Whole game state saved after every accepted move; reloaded when the object wakes from hibernation.
+- WebSocket hibernation API: idle tables use no compute. "ping" is answered with "pong" without waking the object.
+- Identity: each device makes a secret token (kept in localStorage) and sends `hello {token, name}`. Same token = same seat and cards after a reconnect or a dead phone. Others only ever see a public player id; tokens are never sent out.
+- Every change sends each player their own view: own cards; everyone's sets; card counts; discard top; stock count; the joker only if they've seen it. Never other players' loose cards, the stock order, or tokens (tested).
+- A rejected move changes nothing (applied to a copy) and the error goes only to that player.
+- Shuffling uses the platform's cryptographic random source.
+
+### Server decisions NOT in the confirmed rules (please confirm or correct)
+- OPEN-15 When can you show? Only on your own turn, before or after drawing. After everyone acknowledges (and the first shower picks the joker), the same player's turn continues. Mockup shows it after drawing.
+- OPEN-16 Stock runs out: the discard pile minus its top card is shuffled into a new stock.
+- OPEN-17 Unused cards at the end are counted from how each player has ARRANGED their sets at the moment of the declare (a valid set left in the "in hand" zone counts as unused). Alternative: the server finds each loser's best arrangement automatically. Matters if parents don't arrange carefully.
+- OPEN-18 Taking the discard: no restrictions (some families forbid picking up a joker or require using the card in a set).
+- OPEN-19 Dealer rotates each round; the player after the dealer plays first.
+- New players can join only in the lobby or between rounds; a returning player (same device) can rejoin any time.
+- Host-only "abandon round" (back to the lobby, no scoring) as an escape if someone can't continue; otherwise the game waits (confirmed).
+- Running totals per player = sum of settlements across rounds.
+- Tables are never deleted (a few KB each). Anyone with the site can create a table; no login.

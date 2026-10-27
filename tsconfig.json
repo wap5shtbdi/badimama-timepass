@@ -1,4 +1,6 @@
 {
+  // Rules engine + game engine + their tests (run in Node). The server has its own config
+  // (tsconfig.worker.json) because the Workers runtime types clash with Node's.
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
@@ -9,5 +11,5 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["src", "test"]
+  "include": ["src/rules", "src/game", "test/*.ts"]
 }

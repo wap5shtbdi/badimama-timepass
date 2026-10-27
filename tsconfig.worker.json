@@ -1,0 +1,16 @@
+{
+  // Table server (Cloudflare Worker + Durable Object) and its tests, which run inside the
+  // Workers runtime. Types come from `npm run types` (worker-configuration.d.ts).
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2024"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["@cloudflare/vitest-plugin/types"]
+  },
+  "include": ["worker-configuration.d.ts", "src/server", "src/game", "src/rules", "test/worker"]
+}

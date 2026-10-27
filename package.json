@@ -2,13 +2,20 @@
   "name": "badimama-timepass",
   "version": "1.0.0",
   "scripts": {
+    "postinstall": "wrangler types",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "types": "wrangler types",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.worker.json"
   },
   "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.4.9",
     "@types/node": "^26.6.5",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "wrangler": "^4.154.0"
   },
   "private": true,
   "type": "module"

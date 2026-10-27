@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "badimama-timepass",
+  "main": "src/server/worker.ts",
+  // On/after 2026-04-07 the runtime replies to WebSocket close frames itself.
+  "compatibility_date": "2026-10-23",
+  "durable_objects": {
+    "bindings": [{ "name": "TABLES", "class_name": "Table" }]
+  },
+  // Free plan requires SQLite-backed Durable Objects.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Table"] }],
+  "observability": { "enabled": true }
+}
