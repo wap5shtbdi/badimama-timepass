@@ -82,6 +82,7 @@ Mockups: Design canvas "Marriage card game mockups" (claude.ai artifact HeghxSFR
   - Server: Cloudflare Worker + one Durable Object per table, WebSocket hibernation API (plain DOs, not PartyServer, which its README calls work in progress).
   - Client: React + Vite, Cloudflare Vite plugin (page + server in one Worker); partysocket for auto-reconnect.
   - Touch drag: custom pointer-event code; tap-to-select is the primary method on phones. (@dnd-kit/core last release Dec 2024; @dnd-kit/react is pre-1.0.)
+  - BUILT 2026-10-29 (Vikram chose option A): press and hold a card ~0.3 s, it lifts (short buzz on Android), drag it: onto a card (lands just before it; onto a set's card from outside that set it joins the set in order), onto a set, New set, the hand (goes to the end), or the pile (discards; only one card, only after drawing). A quick tap still selects; a quick swipe still scrolls. Dragging a selected card moves the whole selection. Code: src/client/touchDrag.ts + dropResult in hand.ts. Checked with real touch events in Chromium; hold time to be tuned on real phones.
   - Versions checked 2026-10-27: react 19.3.1, vite 8.3.5, @cloudflare/vite-plugin 1.65.0, wrangler 4.154.0, partysocket 1.3.0, typescript 7.0.2, vitest 5.0.5.
   - Server tests run in the Workers runtime with @cloudflare/vitest-plugin 1.4.9 (renamed from @cloudflare/vitest-pool-workers on 2026-08-19; the old package only supports Vitest 4). Worker types come from `wrangler types` (run automatically on npm install), not @cloudflare/workers-types.
   - compatibility_date 2026-10-23: since 2026-04-07 the runtime answers WebSocket close frames itself. Attachments per socket max 16 KiB (we store only the player id).
@@ -174,6 +175,5 @@ Code: `src/client/` (React). Pure logic in `hand.ts` / `cards.ts` (unit-tested i
 
 ### Not done / known limits
 - Not yet tried on a real Android phone, nor the install prompt (needs the deployed https site).
-- Touch drag: phones use tap only (as decided); drag is PC (mouse) only.
 - "Show" shows your first 3 pure sets; there's no picker (any 3 count, SPEC 6b).
 - Alerts and the iPhone home-screen setup not yet tried on real phones (checked in headless Chromium only; no Safari engine available here).

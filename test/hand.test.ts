@@ -3,6 +3,7 @@ import {
   addToSet,
   jokersLeft,
   arrangeMessage,
+  dropResult,
   moveBefore,
   newSet,
   pureSetCount,
@@ -81,6 +82,46 @@ describe('hand operations', () => {
 
   it('builds the arrange message', () => {
     expect(arrangeMessage(hand())).toEqual({ type: 'arrange', ...keys(hand()) });
+  });
+});
+
+describe('dropping a dragged card (touch and mouse)', () => {
+  it('onto a card in a set from outside: joins the set in order', () => {
+    const h: HandModel = { sets: [parseCards('9D 10D JD')], loose: parseCards('8D QS') };
+    const r = dropResult(h, ['8D#0'], 'card:JD#2', false);
+    expect(r?.kind === 'arrange' && r.hand.sets[0]!.map((c) => c.rank)).toEqual([8, 9, 10, 11]);
+    // Within the same set: exactly where dropped.
+    const r2 = dropResult(h, ['JD#2'], 'card:9D#0', false);
+    expect(r2?.kind === 'arrange' && r2.hand.sets[0]!.map((c) => c.rank)).toEqual([11, 9, 10]);
+  });
+
+  it('on a card: just before it, in the hand or inside a set', () => {
+    const r = dropResult(hand(), ['KD#6'], 'card:QD#3', false);
+    expect(r?.kind === 'arrange' && keys(r.hand).loose.slice(0, 2)).toEqual(['KD#6', 'QD#3']);
+    const r2 = dropResult(hand(), ['3S#8'], 'card:4S#0', false);
+    expect(r2?.kind === 'arrange' && keys(r2.hand).sets[0]).toEqual(['3S#8', '4S#0', '5S#1', '6S#2']);
+  });
+
+  it('on a set, New set, or the hand', () => {
+    const toSet = dropResult(hand(), ['3S#8'], 'set:0', false);
+    expect(toSet?.kind === 'arrange' && keys(toSet.hand).sets[0]).toEqual(['3S#8', '4S#0', '5S#1', '6S#2']);
+    const fresh = dropResult(hand(), ['AS#7', '3S#8'], 'newset', false);
+    expect(fresh?.kind === 'arrange' && keys(fresh.hand).sets[1]).toEqual(['AS#7', '3S#8']);
+    const back = dropResult(hand(), ['5S#1'], 'hand', false);
+    expect(back?.kind === 'arrange' && keys(back.hand).loose.at(-1)).toBe('5S#1');
+  });
+
+  it('on the pile: discards one card, only when you may', () => {
+    expect(dropResult(hand(), ['QD#3'], 'pile', true)).toEqual({ kind: 'discard', cardId: 'QD#3' });
+    expect(dropResult(hand(), ['QD#3'], 'pile', false)).toBeNull();
+    expect(dropResult(hand(), ['QD#3', 'KD#6'], 'pile', true)).toBeNull();
+  });
+
+  it('nothing happens outside a target, on itself, or on a missing set', () => {
+    expect(dropResult(hand(), ['QD#3'], null, true)).toBeNull();
+    expect(dropResult(hand(), ['QD#3'], 'card:QD#3', true)).toBeNull();
+    expect(dropResult(hand(), ['QD#3'], 'set:7', true)).toBeNull();
+    expect(dropResult(hand(), ['QD#3'], 'elsewhere', true)).toBeNull();
   });
 });
 

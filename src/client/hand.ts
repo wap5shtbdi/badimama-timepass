@@ -106,6 +106,43 @@ export function jokersLeft(hand: HandModel, joker: Card): HandModel {
   return { sets: hand.sets, loose: [...jokers, ...rest] };
 }
 
+/** Where a dragged card was dropped (the element's data-drop value). */
+export type DropTarget = `card:${string}` | `set:${number}` | 'newset' | 'hand' | 'pile';
+
+export type DropResult = { kind: 'arrange'; hand: HandModel } | { kind: 'discard'; cardId: string } | null;
+
+/**
+ * What dropping the dragged cards `ids` on `target` does. Shared by mouse and touch drag.
+ * - on a card: put them just before it (in the hand or inside that set)
+ * - on a set: add them to it; on "New set": start a set; on the hand: back to the hand (at the end)
+ * - on the pile: discard, only one card and only when you may discard
+ */
+export function dropResult(hand: HandModel, ids: string[], target: string | null, canDiscard: boolean): DropResult {
+  if (!target || ids.length === 0) return null;
+  if (target.startsWith('card:')) {
+    const before = target.slice(5);
+    if (ids.includes(before)) return null;
+    // Onto a card in a set, from outside that set: join the set in order (8♦ onto 9♦ 10♦ J♦ goes
+    // first). Rearranging cards already in that set, or in the hand: exactly where dropped.
+    const setIndex = hand.sets.findIndex((s) => s.some((c) => c.id === before));
+    if (setIndex >= 0 && ids.some((id) => !(hand.sets[setIndex] as Card[]).some((c) => c.id === id))) {
+      return { kind: 'arrange', hand: addToSet(hand, setIndex, ids) };
+    }
+    let next = hand;
+    for (const id of ids) next = moveBefore(next, id, before);
+    return next === hand ? null : { kind: 'arrange', hand: next };
+  }
+  if (target.startsWith('set:')) {
+    const i = Number(target.slice(4));
+    if (!Number.isInteger(i) || !hand.sets[i]) return null;
+    return { kind: 'arrange', hand: addToSet(hand, i, ids) };
+  }
+  if (target === 'newset') return { kind: 'arrange', hand: newSet(hand, ids) };
+  if (target === 'hand') return { kind: 'arrange', hand: toHand(hand, ids) };
+  if (target === 'pile') return canDiscard && ids.length === 1 ? { kind: 'discard', cardId: ids[0] as string } : null;
+  return null;
+}
+
 export function arrangeMessage(hand: HandModel) {
   return {
     type: 'arrange' as const,

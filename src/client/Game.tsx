@@ -1,6 +1,6 @@
 // The table during a round (mockups "your turn", "show 3 sets", "arrange", "PC — table").
 
-import { type DragEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type DragEvent, type PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from 'react';
 import type { TableView } from '../game/protocol';
 import { canDeclare, type Card as CardT, rankAbove, rankBelow, rankLabel, valuePoints } from '../rules';
 import { Card, CardBack, type CardSize } from './Card';
@@ -8,6 +8,7 @@ import { cardText } from './cards';
 import {
   addToSet,
   allCards,
+  dropResult,
   type HandModel,
   moveBefore,
   newSet,
@@ -19,6 +20,7 @@ import {
   unusedNow,
 } from './hand';
 import { eventText, nameOf, signed } from './text';
+import { useTouchDrag } from './touchDrag';
 import type { TableConnection } from './useTable';
 
 interface GameProps {
@@ -62,6 +64,9 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
 
   const dragging = useRef<string[]>([]);
   const draggable = canDrag();
+  // Touch drag (phones): the drop handler needs this render's hand, so it's set further down.
+  const touchDropRef = useRef<(ids: string[], target: string | null) => void>(() => {});
+  const touch = useTouchDrag((ids, target) => touchDropRef.current(ids, target));
 
   if (!hand || !me) {
     return (
@@ -137,6 +142,21 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
     });
   const allowDrop = (e: DragEvent) => e.preventDefault();
 
+  // ---------- Touch drag (phones): hold a card, then drag ----------
+  const dragIds = (id: string) => (sel.includes(id) && sel.length > 1 ? sel : [id]);
+  touchDropRef.current = (ids, target) => {
+    const r = dropResult(hand, ids, target, canDiscard);
+    if (r?.kind === 'arrange') apply(r.hand);
+    else if (r?.kind === 'discard') discard(r.cardId);
+  };
+  const dragged = new Set(touch.drag?.ids ?? []);
+  const slotProps = (c: CardT, size: 'sm' | 'lg') => ({
+    className: `slot slot-${size}${dragged.has(c.id) ? ' is-dragging' : ''}`,
+    'data-drop': `card:${c.id}`,
+    onPointerDown: (e: ReactPointerEvent) => touch.begin(e, c.id, dragIds(c.id)),
+  });
+  const ghostCard = touch.drag ? allCards(hand).find((c) => c.id === touch.drag!.cardId) : undefined;
+
   // ---------- Pieces ----------
   const cardProps = (c: CardT, size: CardSize) => ({
     card: c,
@@ -144,7 +164,9 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
     joker,
     fourColor,
     selected: sel.indexOf(c.id) + 1,
-    onTap: () => toggle(c.id),
+    onTap: () => {
+      if (!touch.swallowClick()) toggle(c.id);
+    },
     draggable,
     onDragStart: draggable ? startDrag(c.id) : undefined,
     onDrop: draggable ? dropOnCard(c.id) : undefined,
@@ -264,6 +286,7 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
                   <div
                     key={set[0]?.id ?? i}
                     className={`set set-${label.tone}`}
+                    data-drop={`set:${i}`}
                     onDragOver={draggable ? allowDrop : undefined}
                     onDrop={draggable ? dropOn((ids) => apply(addToSet(hand, i, ids))) : undefined}
                   >
@@ -280,7 +303,7 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
                     </div>
                     <div className="set-cards">
                       {set.map((c) => (
-                        <span className="slot slot-sm" key={c.id}>
+                        <span key={c.id} {...slotProps(c, 'sm')}>
                           <Card {...cardProps(c, 'sm')} />
                         </span>
                       ))}
@@ -291,6 +314,7 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
               <button
                 type="button"
                 className="new-set"
+                data-drop="newset"
                 onClick={() => sel.length && apply(newSet(hand, sel))}
                 disabled={sel.length === 0 && !draggable}
                 onDragOver={draggable ? allowDrop : undefined}
@@ -305,6 +329,7 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
           {/* Cards in hand */}
           <section
             className="zone zone-hand"
+            data-drop="hand"
             aria-label="Cards in hand"
             onDragOver={draggable ? allowDrop : undefined}
             onDrop={draggable ? dropOn((ids) => apply(toHand(hand, ids))) : undefined}
@@ -316,7 +341,7 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
             </div>
             <div className="hand-row">
               {hand.loose.map((c) => (
-                <span className="slot slot-lg" key={c.id}>
+                <span key={c.id} {...slotProps(c, 'lg')}>
                   <Card {...cardProps(c, 'lg')} />
                 </span>
               ))}
@@ -353,6 +378,15 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
 
         {wide && <SidePanel view={view} />}
       </div>
+
+      {touch.drag && ghostCard && (
+        <div ref={touch.ghostRef} className="drag-ghost" aria-hidden="true">
+          <span className="drag-ghost-card">
+            <Card card={ghostCard} size="lg" joker={joker} fourColor={fourColor} />
+            {touch.drag.ids.length > 1 && <span className="drag-count">{touch.drag.ids.length}</span>}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -461,7 +495,7 @@ function DiscardPile({
   onDrop?: (e: DragEvent) => void;
 }) {
   return (
-    <div className={`mat${dropTarget ? ' is-drop' : ''}`} onDragOver={onDragOver} onDrop={onDrop}>
+    <div className={`mat${dropTarget ? ' is-drop' : ''}`} data-drop="pile" onDragOver={onDragOver} onDrop={onDrop}>
       {cards.length === 0 && <span className="mat-empty">Discard pile is empty</span>}
       {cards.map((c, i) => {
         const top = i === cards.length - 1;

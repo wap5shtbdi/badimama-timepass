@@ -285,8 +285,79 @@ button.card {
 
 /* Overlapping rows: each card sits in a slot that can shrink, so the next card overlaps it. */
 .slot {
+  position: relative;
   display: flex;
   min-width: 0;
+}
+
+/* ---------- Touch drag (hold a card, then drag) ---------- */
+.card {
+  -webkit-touch-callout: none; /* no iPhone long-press menu on cards */
+}
+.slot.is-dragging .card {
+  opacity: 0.3;
+}
+/* Where the card will land: a gold bar just before the card under the finger. */
+.slot.drop-hover::before {
+  content: '';
+  position: absolute;
+  left: -5px;
+  top: -6px;
+  bottom: -6px;
+  width: 5px;
+  border-radius: 3px;
+  background: var(--gold);
+  box-shadow: 0 0 8px rgba(242, 193, 78, 0.8);
+  z-index: 40;
+}
+.set.drop-hover .set-cards {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(242, 193, 78, 0.45);
+}
+.new-set.drop-hover {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: rgba(242, 193, 78, 0.12);
+}
+.zone-hand.drop-hover {
+  background: rgba(242, 193, 78, 0.08);
+  border-radius: 10px;
+}
+.mat.drop-hover {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+.drag-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 60;
+  pointer-events: none;
+  will-change: transform;
+}
+.drag-ghost-card {
+  position: relative;
+  display: block;
+  /* Above and to the right of the finger: the finger doesn't hide the card, and the gold
+     "lands here" bar (just left of the finger) stays visible. */
+  transform: translate(-10%, -100%) rotate(4deg) scale(1.05);
+  filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.5));
+}
+.drag-count {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 13px;
+  background: var(--gold);
+  color: var(--gold-ink);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--felt);
 }
 .set-cards {
   display: flex;
