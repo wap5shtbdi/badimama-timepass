@@ -11,7 +11,7 @@ import {
   viewFor,
 } from '../src/game/engine';
 import type { ClientMessage } from '../src/game/protocol';
-import { type Card, parseCard } from '../src/rules';
+import { type Card, checkSet, parseCard } from '../src/rules';
 
 // ---------- Helpers ----------
 
@@ -630,7 +630,10 @@ describe('views', () => {
     // Own cards are there; Mom's set is public.
     expect(v.round!.hand!.loose).toHaveLength(21);
     const mom = v.players.find((p) => p.id === g.ids[1])!;
-    expect(mom.sets).toHaveLength(1);
+    // Three random cards aren't a pure set, so before seeing the joker it's only counted.
+    const pure = checkSet(g.hand(1).sets[0]!, null).pure;
+    expect(mom.sets).toHaveLength(pure ? 1 : 0);
+    expect(mom.hiddenSets).toBe(pure ? 0 : 1);
     expect(mom.cardCount).toBe(21);
     expect(v.round!.discardTop).toEqual(g.round.discard.at(-1));
     expect(v.round!.stockCount).toBe(g.round.stock.length);
@@ -652,6 +655,60 @@ describe('views', () => {
     const v = viewFor(g.state, null, new Set());
     expect(v.round!.hand).toBeNull();
     expect(v.round!.joker).toBeNull();
+  });
+});
+
+describe("others' sets and the joker (bug 2026-10-29)", () => {
+  /** Joker 7♥. Mom has seen it and holds 3 pure sets + 2 joker sets; Dad hasn't seen it. */
+  function setup(): Game {
+    const g = new Game(3);
+    g.do(0, { type: 'start' });
+    const r = g.round;
+    r.picked = parseCard('7H', 'picked-7H');
+    r.pickedBy = g.ids[1]!;
+    r.seen = [g.ids[1]!];
+    r.shown = [g.ids[1]!];
+    g.setHand(
+      1,
+      [
+        cards('p1', '4S 5S 6S'),
+        cards('p2', '9D 10D JD'),
+        cards('p3', 'KC KC KC'),
+        cards('j1', 'QD KD 7C'), // sequence held together by a joker
+        cards('j2', 'AS AH 7S'), // mixed trail + joker
+      ],
+      cards('m', 'QS QS 2H JH 3D AC'),
+    );
+    return g;
+  }
+  const ids = (sets: { id: string }[][]) => sets.flat().map((c) => c.id);
+
+  it('someone who has not seen the joker gets only the pure sets, never the joker sets', () => {
+    const g = setup();
+    const v = g.view(2); // Dad, not seen
+    const mom = v.players.find((p) => p.id === g.ids[1])!;
+    expect(mom.sets).toHaveLength(3);
+    expect(mom.hiddenSets).toBe(2);
+    const json = JSON.stringify(v);
+    for (const id of ids([cards('j1', 'QD KD 7C'), cards('j2', 'AS AH 7S')])) expect(json).not.toContain(id);
+    expect(json).not.toContain('picked-7H');
+    expect(mom.cardCount).toBe(21);
+  });
+
+  it('once you have seen the joker you see all their sets', () => {
+    const g = setup();
+    g.round.seen.push(g.ids[2]!);
+    const mom = g.view(2).players.find((p) => p.id === g.ids[1])!;
+    expect(mom.sets).toHaveLength(5);
+    expect(mom.hiddenSets).toBe(0);
+  });
+
+  it('you always see all of your own sets', () => {
+    const g = setup();
+    g.setHand(2, [cards('d1', '4D 5D 9C')], cards('d', 'QS'));
+    const v = g.view(2);
+    expect(v.players.find((p) => p.id === g.ids[2])!.sets).toHaveLength(1);
+    expect(v.round!.hand!.sets).toHaveLength(1);
   });
 });
 

@@ -13,6 +13,7 @@ import {
   newSet,
   pureSetCount,
   setLabel,
+  jokersLeft,
   sortLoose,
   toHand,
   unusedNow,
@@ -332,6 +333,14 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
                   </>
                 )}
               </span>
+              {joker && (
+                <button type="button" className="sort-btn" onClick={() => apply(jokersLeft(hand, joker))} aria-label="Move jokers to the left">
+                  <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11 6l-6 6 6 6M19 6l-6 6 6 6" />
+                  </svg>
+                  <span>Jokers</span>
+                </button>
+              )}
               <button type="button" className="sort-btn" onClick={() => apply(sortLoose(hand))}>
                 <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4" />

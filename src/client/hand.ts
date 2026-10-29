@@ -5,6 +5,7 @@ import {
   bestArrangement,
   type Card,
   checkSet,
+  isJoker,
   type SetCheck,
   unusedPoints,
   valueRole,
@@ -91,6 +92,18 @@ export function sortLoose(hand: HandModel): HandModel {
     .slice()
     .sort((a, b) => SUIT_ORDER[a.suit] - SUIT_ORDER[b.suit] || a.rank - b.rank);
   return { sets: hand.sets, loose };
+}
+
+/**
+ * Put the jokers in hand on the left, everything else on the right (requested 2026-10-29).
+ * Each side keeps its current order; jokers are grouped by rank, then suit. Sets are left alone.
+ * Only usable once you've seen the joker (`joker` is the picked card).
+ */
+export function jokersLeft(hand: HandModel, joker: Card): HandModel {
+  const jokers = hand.loose.filter((c) => isJoker(c, joker));
+  const rest = hand.loose.filter((c) => !isJoker(c, joker));
+  jokers.sort((a, b) => a.rank - b.rank || SUIT_ORDER[a.suit] - SUIT_ORDER[b.suit]);
+  return { sets: hand.sets, loose: [...jokers, ...rest] };
 }
 
 export function arrangeMessage(hand: HandModel) {

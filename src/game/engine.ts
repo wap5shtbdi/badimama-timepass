@@ -541,8 +541,14 @@ function declare(state: TableState, playerId: string, discardId: unknown): void 
  */
 export function viewFor(state: TableState, playerId: string | null, connected: ReadonlySet<string>): TableView {
   const round = state.round;
+  // Other players' sets can give away the joker (a set held together by wildcards shows which
+  // cards are wild). Until you've seen the joker you only get their pure sequences and trails;
+  // the rest are counted, not sent (bug reported 2026-10-29).
+  const viewerSeen = !!playerId && !!round?.seen.includes(playerId);
   const players: PlayerView[] = state.players.map((p) => {
     const hand = round?.hands[p.id];
+    const all = hand ? hand.sets : [];
+    const visible = p.id === playerId || viewerSeen ? all : all.filter((s) => checkSet(s, null).pure);
     return {
       id: p.id,
       name: p.name,
@@ -551,7 +557,8 @@ export function viewFor(state: TableState, playerId: string | null, connected: R
       inRound: !!hand,
       seen: !!round?.seen.includes(p.id),
       shown: !!round?.shown.includes(p.id),
-      sets: hand ? structuredClone(hand.sets) : [],
+      sets: structuredClone(visible),
+      hiddenSets: all.length - visible.length,
       cardCount: hand ? hand.sets.flat().length + hand.loose.length : 0,
       total: state.totals[p.id] ?? 0,
     };

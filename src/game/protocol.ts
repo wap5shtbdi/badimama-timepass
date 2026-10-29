@@ -47,8 +47,13 @@ export interface PlayerView {
   seen: boolean;
   /** Has gone through a show this round (pending or done). */
   shown: boolean;
-  /** Everyone's sets are public (SPEC 8: "tap a player's name"). Loose cards never are. */
+  /**
+   * Sets you're allowed to see (SPEC 8: "tap a player's name"). Loose cards never are.
+   * Before you've seen the joker: only their pure sequences and trails (others would reveal it).
+   */
   sets: Card[][];
+  /** Their sets you can't see yet because you haven't seen the joker. */
+  hiddenSets: number;
   cardCount: number;
   /** Running total across rounds (sum of settlements). */
   total: number;

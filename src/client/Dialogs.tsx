@@ -181,10 +181,13 @@ export function PlayerSheet({
         <span className="grow" />
         <CloseButton onClose={onClose} />
       </div>
-      {p.sets.length ? (
-        <SetsRow sets={p.sets} joker={myJoker} fourColor={fourColor} />
-      ) : (
-        <p className="muted">No sets made yet. Cards in hand are never shown.</p>
+      {p.sets.length > 0 && <SetsRow sets={p.sets} joker={myJoker} fourColor={fourColor} />}
+      {p.sets.length === 0 && p.hiddenSets === 0 && <p className="muted">No sets made yet. Cards in hand are never shown.</p>}
+      {p.hiddenSets > 0 && (
+        <p className="muted">
+          {p.sets.length > 0 ? '+ ' : ''}
+          {p.hiddenSets} more {p.hiddenSets === 1 ? 'set' : 'sets'}, hidden until you've seen the joker.
+        </p>
       )}
     </Modal>
   );

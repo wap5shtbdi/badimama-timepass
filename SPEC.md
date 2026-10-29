@@ -109,6 +109,7 @@ Mockups: Design canvas "Marriage card game mockups" (claude.ai artifact HeghxSFR
   - If someone doesn't acknowledge, the game waits (confirmed).
   - No "not right" objection button: the app validates the sets itself (assumed default; Vikram didn't object).
 - Seeing others' sets (confirmed): tap a player's name to see ALL the sets they currently have, live, whether or not they have shown yet. Cards in hand are NEVER visible to others.
+  - CHANGED 2026-10-29 (bug reported by Vikram): until YOU have seen the joker, you only see other players' pure sequences and trails. Their other sets (joker sets, mixed trails, unfinished groups) would give the joker away, so the server doesn't send them; you see "+ N more sets, hidden until you've seen the joker". After you've seen it, you see all their sets.
   - Server sends other players' sets to everyone, never their in-hand cards.
 - Minimum-3 rule (confirmed): once a player has seen the joker, the game blocks any move that would leave them with fewer than 3 valid sets. Message shown; move undone.
   - SUPERSEDED: see "MINIMUM-3 RULE, FINAL" in section 6b. Only natural sets (no jokers) count.

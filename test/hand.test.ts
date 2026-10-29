@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addToSet,
+  jokersLeft,
   arrangeMessage,
   moveBefore,
   newSet,
@@ -65,6 +66,17 @@ describe('hand operations', () => {
     expect(h.loose.map(cardText)).toEqual(['A♠︎', '10♠︎', '2♥︎', '3♣︎', 'K♦︎']);
     expect(sortGroup(parseCards('AH KH QH')).map((c) => c.rank)).toEqual([12, 13, 1]);
     expect(sortGroup(parseCards('3H AH 2H')).map((c) => c.rank)).toEqual([1, 2, 3]);
+  });
+
+  it('jokers to the left, the rest keeps its order (joker 7♥)', () => {
+    const J = parseCard('7H');
+    const h: HandModel = { sets: [parseCards('4S 5S 6S')], loose: parseCards('QD 7S 2C 8H KD 6H 7C 9S') };
+    const r = jokersLeft(h, J);
+    expect(r.loose.map(cardText)).toEqual(
+      ['6H', '7S', '7C', '8H', 'QD', '2C', 'KD', '9S'].map((k) => cardText(parseCard(k))),
+    );
+    expect(r.sets).toBe(h.sets);
+    expect(jokersLeft({ sets: [], loose: parseCards('2C 3D') }, J).loose.map(cardText)).toEqual(['2♣\uFE0E', '3♦\uFE0E']);
   });
 
   it('builds the arrange message', () => {
