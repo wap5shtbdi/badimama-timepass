@@ -910,6 +910,34 @@ describe('pairs and packing (2026-10-31)', () => {
     expect(g.view(0).round!.joker).toBeNull();
   });
 
+  it('everyone else packs: the last player wins, picking the joker first if needed', () => {
+    const g = new Game(3);
+    g.do(0, { type: 'start' }); // Mom first
+    g.do(1, { type: 'pack' });
+    expect(g.state.phase).toBe('playing');
+    expect(g.turnPlayer()).toBe(2);
+    g.do(2, { type: 'pack' });
+    // Only Vikram is left; nobody has picked the joker, so he picks it, then the round ends.
+    expect(g.round.awaitingPick).toBe(g.ids[0]);
+    expect(g.view(0).round!.pickThenDeclare).toBe(true);
+    expect(g.try(0, { type: 'draw', from: 'stock' })).toMatch(/pick the joker/);
+    g.do(0, { type: 'pickJoker', index: 2 });
+    expect(g.state.result).toMatchObject({ declarer: g.ids[0], how: 'packed' });
+    const row = (i: number) => g.state.result!.rows.find((r) => r.player === g.ids[i])!;
+    expect(row(1)).toMatchObject({ packed: 'any', unused: 5 });
+    expect(row(2)).toMatchObject({ packed: 'any', unused: 5 });
+    expect(Object.values(g.state.totals).reduce((a, b) => a + b, 0)).toBe(0);
+  });
+
+  it('everyone else packs after the joker is known: the round ends at once', () => {
+    const g = new Game(2);
+    g.do(0, { type: 'start' });
+    g.round.picked = parseCard('7H', 'picked-7H');
+    g.do(1, { type: 'pack' });
+    expect(g.state.phase).toBe('roundOver');
+    expect(g.state.result).toMatchObject({ declarer: g.ids[0], how: 'packed' });
+  });
+
   it('settlement: packed players pay fixed card points + declarer value − own value', () => {
     const g = new Game(4);
     g.do(0, { type: 'start' });

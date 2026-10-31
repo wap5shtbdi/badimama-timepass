@@ -100,8 +100,10 @@ export interface RoundState {
   played?: string[];
   /** Players out of this round. */
   packed?: Packed[];
-  /** Declaring with pairs, waiting for this player to pick the joker first. */
+  /** This player picks the joker, then the round ends with them as declarer (pairs, or last one left). */
   pairsDeclare?: string | null;
+  /** How that pending declare will be recorded. */
+  pendingHow?: RoundResult['how'];
 }
 
 export interface TableState {
@@ -516,6 +518,26 @@ function packAnyTime(state: TableState, playerId: string, discardId: unknown): v
     fail('Draw a card first');
   }
   packPlayer(round, playerId, 'any');
+  lastOneLeft(state, round);
+}
+
+/** Everyone else has packed: the last player is the declarer (confirmed 2026-10-31). */
+function lastOneLeft(state: TableState, round: RoundState): void {
+  const active = round.seats.filter((id) => !isPacked(round, id));
+  if (active.length !== 1) return;
+  const last = active[0] as string;
+  declareWhenJokerKnown(state, round, last, 'packed');
+}
+
+/** End the round with `id` as declarer; if nobody has picked the joker, they pick it first. */
+function declareWhenJokerKnown(state: TableState, round: RoundState, id: string, how: RoundResult['how']): void {
+  if (round.picked === null) {
+    round.awaitingPick = id;
+    round.pairsDeclare = id;
+    round.pendingHow = how;
+  } else {
+    settle(state, round, id, how);
+  }
 }
 
 /** Pack or declare with pairs (confirmed 2026-10-31). See PAIRS in rules/pairs.ts. */
@@ -598,16 +620,12 @@ function ack(state: TableState, playerId: string): void {
   round.show = null;
   if (pending.kind === 'pack') {
     packPlayer(round, pending.by, 'pairs');
+    lastOneLeft(state, round);
     return;
   }
   if (pending.kind === 'pairs') {
     // Declaring with pairs: pick the joker first if nobody has (confirmed), then the round ends.
-    if (round.picked === null) {
-      round.awaitingPick = pending.by;
-      round.pairsDeclare = pending.by;
-    } else {
-      settle(state, round, pending.by, 'pairs');
-    }
+    declareWhenJokerKnown(state, round, pending.by, 'pairs');
     return;
   }
   // Everyone has checked: the first shower picks the joker, later showers simply see it.
@@ -633,7 +651,7 @@ function pickJoker(state: TableState, playerId: string, index: unknown, env: Eng
   record(round, { by: playerId, kind: 'sawJoker' });
   if (round.pairsDeclare === playerId) {
     round.pairsDeclare = null;
-    settle(state, round, playerId, 'pairs');
+    settle(state, round, playerId, round.pendingHow ?? 'pairs');
   }
 }
 
@@ -806,6 +824,7 @@ export function viewFor(state: TableState, playerId: string | null, connected: R
         : null,
       awaitingPick: round.awaitingPick,
       pairsWindow: pairsWindowFor(round, playerId),
+      pickThenDeclare: !!round.awaitingPick && round.pairsDeclare === round.awaitingPick,
       opening: round.opening
         ? { waitingFor: round.seats.filter((id) => !round.opening!.decided.includes(id)) }
         : null,

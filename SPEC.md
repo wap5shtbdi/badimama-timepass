@@ -65,7 +65,7 @@ Mockups: Design canvas "Marriage card game mockups" (claude.ai artifact HeghxSFR
 - Pack without pairs: on your own turn, any time after the round has started (after drawing: put one card down).
 - Packed players are out of the round: their turns are skipped, they see the joker from then on.
 - At the end, a packed player pays fixed card points + declarer's value − own value: 0 after packing with pairs, 5 after packing without. Their values still count (if negative, the declarer pays them).
-- Server choices: can't pack during the A♠ / 2♣ question, a show check or a joker pick. If everyone else packs, the last player keeps playing until they declare (OPEN-20).
+- Server choices: can't pack during the A♠ / 2♣ question, a show check or a joker pick. If everyone else packs, the last player is the declarer automatically (confirmed 2026-10-31); if nobody has picked the joker yet, they pick it first, then the round ends.
 
 ## 6. Settlement (confirmed)
 - Card values: A, K, Q, J = 10 each; 2–10 = face value.

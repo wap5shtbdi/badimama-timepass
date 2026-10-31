@@ -29,7 +29,9 @@ export function Result({ view, conn, fourColor, onLeave }: { view: TableView; co
     <main className="result">
       <div className="result-head">
         <h1>
-          {nm(declarer)} declared{result.how === 'pairs' ? ' with pairs' : ''}
+          {result.how === 'packed'
+            ? 'Everyone else packed'
+            : `${nm(declarer)} declared${result.how === 'pairs' ? ' with pairs' : ''}`}
         </h1>
         <span className="muted">
           Round {result.roundNo} · Joker was {cardText(result.joker)}

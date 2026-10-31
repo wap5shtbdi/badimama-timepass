@@ -102,6 +102,8 @@ export interface RoundView {
   show: ShowView | null;
   /** Player who must pick the joker now (everyone acknowledged their first show). */
   awaitingPick: string | null;
+  /** The joker pick ends the round (declaring with pairs, or everyone else packed). */
+  pickThenDeclare: boolean;
   /** Your chance to pack / declare with pairs right now (your turn), or null. */
   pairsWindow: { pack: number; declare: number; afterDraw: boolean } | null;
   /** Before play: who still has to show their A♠ / 2♣ or skip. Null once play has started. */
@@ -159,8 +161,8 @@ export interface RoundResult {
   roundNo: number;
   declarer: string;
   joker: Card;
-  /** How the declarer won: 3+ sets as usual, or with pairs. */
-  how: 'sets' | 'pairs';
+  /** How the declarer won: 3+ sets as usual, with pairs, or everyone else packed. */
+  how: 'sets' | 'pairs' | 'packed';
   rows: ResultRow[];
   openingShows: OpeningShow[];
 }

@@ -133,16 +133,22 @@ export function PickJoker({ view, conn }: { view: TableView; conn: TableConnecti
   return (
     <Modal label="Pick the joker" wide>
       <div className="pick">
-        <div className="tags">
-          <span className="muted">Everyone checked your sets:</span>
-          {checked.map((p) => (
-            <span key={p.id} className="tag tag-ok">
-              ✓ {p.name}
-            </span>
-          ))}
-        </div>
+        {!round.pickThenDeclare && (
+          <div className="tags">
+            <span className="muted">Everyone checked your sets:</span>
+            {checked.map((p) => (
+              <span key={p.id} className="tag tag-ok">
+                ✓ {p.name}
+              </span>
+            ))}
+          </div>
+        )}
         <h2>Pick the joker</h2>
-        <p className="muted">Tap any card from the stock. Only you will see it for now.</p>
+        <p className="muted">
+          {round.pickThenDeclare
+            ? 'Tap any card from the stock. Then the round ends and you win it.'
+            : 'Tap any card from the stock. Only you will see it for now.'}
+        </p>
         <div className="spread">
           {Array.from({ length: count }, (_, k) => (
             <span className="slot slot-md" key={k}>
@@ -150,7 +156,7 @@ export function PickJoker({ view, conn }: { view: TableView; conn: TableConnecti
             </span>
           ))}
         </div>
-        <p className="muted small">Others see the joker once they show their own 3 sets.</p>
+        {!round.pickThenDeclare && <p className="muted small">Others see the joker once they show their own 3 sets.</p>}
       </div>
     </Modal>
   );
