@@ -122,7 +122,7 @@ Mockups: Design canvas "Marriage card game mockups" (claude.ai artifact HeghxSFR
   - Each set shows a live label: Sequence / Trail / Marriage / "Sequence + joker" / "! Not a valid set" / "! needs 3+".
   - Live "unused card points" counter.
 - Show-and-acknowledge flow (v3, requested by Vikram):
-  1. Player with 3 pure sequences/trails taps "Show to everyone".
+  1. Player with 3 pure sequences/trails taps "Show my 3 sets" (shown in a "3 sets ready" box; on short phone screens only the button shows, so Pack still fits under it).
   2. Every other player sees a dialog with the 3 sets and taps "OK, I've seen them"; everyone sees who has checked.
   3. When all have acknowledged, the first shower picks the joker from a spread of face-down stock cards; only they see it.
   - Every player who shows goes through this flow, not only the first (confirmed). Later showers skip step 3 and simply see the joker.

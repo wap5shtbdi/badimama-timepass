@@ -299,7 +299,7 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
                   <strong>3 sets ready</strong>
                   <span>Everyone checks them, then you see the joker.</span>
                   <button type="button" className="btn btn-gold" onClick={() => conn.send({ type: 'show' })}>
-                    Show to everyone
+                    Show my 3 sets
                   </button>
                 </div>
               )}

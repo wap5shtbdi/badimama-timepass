@@ -656,6 +656,10 @@ button.card {
   gap: 6px;
   min-width: 160px;
   max-width: 210px;
+  /* Never grow over the top bar or the sets: scroll inside if there's too much. */
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 3px 2px;
 }
 .hint {
   font-size: 13px;
@@ -1220,6 +1224,16 @@ button.card {
   }
   .spot-hint {
     display: none; /* the gold glow on the stock already says it */
+  }
+  /* Short screens: just the gold button (it says "Show 3 sets"), so Pack still fits below it. */
+  .show-ready > span,
+  .show-ready > strong {
+    display: none;
+  }
+  .show-ready {
+    padding: 0;
+    border: 0;
+    background: none;
   }
   .actions .btn {
     min-height: 38px;
