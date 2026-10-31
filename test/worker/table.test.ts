@@ -310,7 +310,7 @@ describe('table over WebSockets', () => {
     const joker = mom.round!.joker!;
     const vik = await clients[0]!.until((v) => !!v.round?.jokerPicked);
     expect(vik.round!.joker).toBeNull();
-    expect(JSON.stringify(vik)).not.toContain(joker.id);
+    expect(JSON.stringify(vik)).not.toContain(`"id":"${joker.id}"`); // whole id: "0-4S" is inside "t00-4S"
     expect(vik.players.find((p) => p.id === momId)!.seen).toBe(true);
   });
 });

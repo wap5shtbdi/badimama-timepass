@@ -403,7 +403,7 @@ describe('show and acknowledge', () => {
     expect(g.view(1).round!.joker).toEqual(expected);
     expect(g.view(0).round!.joker).toBeNull();
     expect(g.view(0).round!.jokerPicked).toBe(true);
-    expect(JSON.stringify(g.view(0))).not.toContain(expected.id);
+    expect(JSON.stringify(g.view(0))).not.toContain(`"id":"${expected.id}"`);
 
     // Shower's turn continues: discard.
     g.do(1, { type: 'discard', cardId: g.hand(1).loose[0]!.id });
@@ -632,9 +632,9 @@ describe('views', () => {
 
     const v = g.view(0);
     const json = JSON.stringify(v);
-    for (const c of g.hand(1).loose) expect(json).not.toContain(c.id);
-    for (const c of g.hand(2).loose) expect(json).not.toContain(c.id);
-    for (const c of g.round.stock) expect(json).not.toContain(c.id);
+    for (const c of g.hand(1).loose) expect(json).not.toContain(`"id":"${c.id}"`);
+    for (const c of g.hand(2).loose) expect(json).not.toContain(`"id":"${c.id}"`);
+    for (const c of g.round.stock) expect(json).not.toContain(`"id":"${c.id}"`);
     for (let i = 0; i < 3; i++) expect(json).not.toContain(token(i));
 
     // Own cards are there; Mom's set is public.
