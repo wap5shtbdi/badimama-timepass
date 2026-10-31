@@ -1039,6 +1039,14 @@ button.card {
 .leave-note {
   max-width: 260px;
 }
+.opening-shown {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gold);
+}
+.opening-line {
+  font-size: 13px;
+}
 .result-foot {
   display: flex;
   align-items: center;

@@ -11,7 +11,7 @@ import {
   viewFor,
 } from '../src/game/engine';
 import type { ClientMessage } from '../src/game/protocol';
-import { type Card, checkSet, parseCard } from '../src/rules';
+import { type Card, checkSet, isOpeningCard, openingPoints, parseCard } from '../src/rules';
 
 // ---------- Helpers ----------
 
@@ -61,10 +61,20 @@ class Game {
   }
 
   /** Apply an action; returns the error message, or null on success. */
+  /** Tests not about the A♠ / 2♣ opening skip it: everyone answers "don't show" after the deal. */
+  autoSkipOpening = true;
+
   try(player: number, msg: ClientMessage): string | null {
     const r = apply(this.state, (d) => act(d, this.ids[player]!, msg, this.env));
     if (!r.ok) return r.error;
     this.state = r.state;
+    if (msg.type === 'start' && this.autoSkipOpening) {
+      for (const id of this.state.round!.seats) {
+        const s = apply(this.state, (d) => act(d, id, { type: 'opening', show: false }, this.env));
+        if (!s.ok) throw new Error(s.error);
+        this.state = s.state;
+      }
+    }
     return null;
   }
 
@@ -709,6 +719,92 @@ describe("others' sets and the joker (bug 2026-10-29)", () => {
     const v = g.view(2);
     expect(v.players.find((p) => p.id === g.ids[2])!.sets).toHaveLength(1);
     expect(v.round!.hand!.sets).toHaveLength(1);
+  });
+});
+
+describe('A♠ / 2♣ shown before play (2026-10-31)', () => {
+  function fresh(): Game {
+    const g = new Game(3);
+    g.autoSkipOpening = false;
+    g.do(0, { type: 'start' }); // Mom (1) plays first
+    return g;
+  }
+
+  it('scores each kind on its own: 1 = 2, 2 = 5, 3 = 10', () => {
+    const P = (k: string) => openingPoints(cards('o', k));
+    expect(P('AS')).toBe(2);
+    expect(P('2C')).toBe(2);
+    expect(P('AS 2C')).toBe(4);
+    expect(P('AS AS')).toBe(5);
+    expect(P('2C 2C 2C')).toBe(10);
+    expect(P('AS 2C 2C')).toBe(7);
+    expect(P('2C AS AS')).toBe(7);
+    expect(P('AS AS AS 2C 2C 2C')).toBe(20);
+    expect(P('AH 2S KD')).toBe(0); // other aces and twos don't count
+  });
+
+  it('nobody can draw until everyone has shown or skipped', () => {
+    const g = fresh();
+    expect(g.view(1).round!.opening!.waitingFor).toHaveLength(3);
+    expect(g.try(1, { type: 'draw', from: 'stock' })).toMatch(/Waiting for Vikram, Mom, Dad to show A♠ \/ 2♣ or skip/);
+    g.do(0, { type: 'opening', show: false });
+    g.do(1, { type: 'opening', show: false });
+    expect(g.try(1, { type: 'draw', from: 'stock' })).toMatch(/Waiting for Dad/);
+    expect(g.try(1, { type: 'opening', show: false })).toMatch(/already answered/);
+    g.do(2, { type: 'opening', show: false });
+    expect(g.view(1).round!.opening).toBeNull();
+    expect(g.try(1, { type: 'draw', from: 'stock' })).toBeNull();
+    expect(g.try(2, { type: 'opening', show: false })).toMatch(/too late/);
+  });
+
+  it('showing: every other player pays at once, cards stay in the hand', () => {
+    const g = fresh();
+    g.hand(1).loose = [...cards('m', 'AS 2C 2C'), ...g.hand(1).loose.filter((c) => !isOpeningCard(c)).slice(0, 18)];
+    g.do(1, { type: 'opening', show: true });
+    expect(g.state.totals).toEqual({ [g.ids[0]!]: -7, [g.ids[1]!]: 14, [g.ids[2]!]: -7 });
+    expect(g.hand(1).loose).toHaveLength(21);
+    const v = g.view(0).round!;
+    expect(v.openingShows).toEqual([{ by: g.ids[1], cards: cards('m', 'AS 2C 2C'), points: 7 }]);
+    expect(v.lastAction).toMatchObject({ kind: 'openingShow', points: 7 });
+  });
+
+  it("can't show without A♠ or 2♣", () => {
+    const g = fresh();
+    g.hand(2).loose = g.hand(2).loose.filter((c) => !isOpeningCard(c));
+    expect(g.try(2, { type: 'opening', show: true })).toMatch(/no A♠ or 2♣/);
+  });
+
+  it('stopping the round gives the opening payments back', () => {
+    const g = fresh();
+    g.hand(1).loose.splice(0, 1, ...cards('m', 'AS'));
+    g.hand(1).loose = g.hand(1).loose.filter((c, i) => i === 0 || !isOpeningCard(c));
+    g.do(1, { type: 'opening', show: true });
+    expect(g.state.totals[g.ids[1]!]).toBe(4);
+    g.do(0, { type: 'abandonRound' });
+    expect(Object.values(g.state.totals)).toEqual([0, 0, 0]);
+  });
+
+  it('the result lists the opening shows and each player\'s opening net separately', () => {
+    const g = fresh();
+    g.hand(2).loose.splice(0, 2, ...cards('d', 'AS AS'));
+    g.hand(2).loose = g.hand(2).loose.filter((c, i) => i < 2 || !isOpeningCard(c));
+    g.do(2, { type: 'opening', show: true });
+    g.do(0, { type: 'opening', show: false });
+    g.do(1, { type: 'opening', show: false });
+    // Mom (seen, all in sets) declares at once.
+    const r = g.round;
+    r.picked = parseCard('7H', 'picked-7H');
+    r.seen = [g.ids[1]!];
+    g.setHand(1, [cards('a', '4S 5S 6S'), cards('b', '9D 10D JD'), cards('c', 'KC KC KC'), cards('e', 'AD 2D 3D'), cards('f', '10C JC QC'), cards('g', '8S 9S 10S'), cards('h', '3H 4H 5H')], []);
+    g.do(1, { type: 'declare' });
+    const res = g.state.result!;
+    expect(res.openingShows).toHaveLength(1);
+    const row = (i: number) => res.rows.find((x) => x.player === g.ids[i])!;
+    expect(row(2).openingNet).toBe(10);
+    expect(row(0).openingNet).toBe(-5);
+    expect(row(1).openingNet).toBe(-5);
+    // Totals = settlement + opening.
+    for (const i of [0, 1, 2]) expect(g.state.totals[g.ids[i]!]).toBe(row(i).net + row(i).openingNet);
   });
 });
 

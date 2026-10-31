@@ -23,6 +23,7 @@ export function Result({ view, conn, fourColor, onLeave }: { view: TableView; co
   const isHost = view.hostId === view.you;
   const host = view.players.find((p) => p.isHost);
   const nm = (r: ResultRow) => (r.player === view.you ? 'You' : r.name);
+  const nameOfRow = (id: string) => result.rows.find((r) => r.player === id)?.name ?? 'Someone';
 
   return (
     <main className="result">
@@ -84,6 +85,18 @@ export function Result({ view, conn, fourColor, onLeave }: { view: TableView; co
           );
         })}
       </div>
+
+      {result.openingShows.length > 0 && (
+        <p className="muted opening-line">
+          Paid before play:{' '}
+          {result.openingShows.map((o, k) => (
+            <span key={k}>
+              {k > 0 ? ' · ' : ''}
+              {o.by === view.you ? 'You' : nameOfRow(o.by)} showed {o.cards.map(cardText).join(' ')} (+{o.points} from each)
+            </span>
+          ))}
+        </p>
+      )}
 
       <div className="grow" />
 

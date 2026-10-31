@@ -13,15 +13,18 @@ import {
   checkSet,
   deal,
   HAND_SIZE,
+  isOpeningCard,
   MAX_PLAYERS,
   meetsMinimum,
   MIN_PLAYERS,
+  openingPoints,
   scoreRound,
   shuffle,
 } from '../rules';
 import type {
   ClientMessage,
   LastAction,
+  OpeningShow,
   Phase,
   PlayerView,
   ResultRow,
@@ -77,6 +80,10 @@ export interface RoundState {
   lastAction: LastAction | null;
   /** Recent actions this round, oldest first (the "This round" log). */
   events: LastAction[];
+  /** Before play: players who have shown their A♠ / 2♣ or skipped. Null once play has started. */
+  opening?: { decided: string[] } | null;
+  /** A♠ / 2♣ shown this round; already paid into totals. */
+  openingShows?: OpeningShow[];
 }
 
 export interface TableState {
@@ -200,6 +207,8 @@ export function act(state: TableState, playerId: string, msg: ClientMessage, env
       return discard(state, playerId, msg.cardId);
     case 'show':
       return show(state, playerId, msg.setIndexes);
+    case 'opening':
+      return opening(state, playerId, msg.show);
     case 'ack':
       return ack(state, playerId);
     case 'pickJoker':
@@ -248,6 +257,8 @@ function startRound(state: TableState, playerId: string, env: EngineEnv): void {
     awaitingPick: null,
     lastAction: null,
     events: [],
+    opening: { decided: [] },
+    openingShows: [],
   };
   state.result = null;
   state.phase = 'playing';
@@ -265,6 +276,8 @@ function abandonRound(state: TableState, playerId: string): void {
   requireHost(state, playerId);
   if (state.phase !== 'playing' || !state.round) fail('No round is being played');
   state.nextDealer = state.round.dealer; // nobody declared, so the same dealer deals again
+  // "No scores": give back what was paid for A♠ / 2♣ shown this round.
+  payOpening(state, state.round, -1);
   state.round = null;
   state.result = null;
   state.phase = 'lobby';
@@ -298,8 +311,12 @@ function record(round: RoundState, action: LastAction): void {
   if (round.events.length > EVENTS_MAX) round.events.splice(0, round.events.length - EVENTS_MAX);
 }
 
-/** Turn actions (draw, discard, declare) wait while a show is being checked or the joker picked. */
+/** Turn actions (draw, discard, declare) wait for the A♠ / 2♣ showing, a show check, or the joker pick. */
 function requireNotWaiting(state: TableState, round: RoundState): void {
+  if (round.opening) {
+    const left = round.seats.filter((id) => !round.opening!.decided.includes(id)).map((id) => nameOf(state, id));
+    fail(`Waiting for ${left.join(', ')} to show A♠ / 2♣ or skip`);
+  }
   if (round.show) fail('Waiting for everyone to check the shown sets');
   if (round.awaitingPick) fail(`Waiting for ${nameOf(state, round.awaitingPick)} to pick the joker`);
 }
@@ -483,6 +500,49 @@ function pickJoker(state: TableState, playerId: string, index: unknown, env: Eng
   record(round, { by: playerId, kind: 'sawJoker' });
 }
 
+// ---------- Before play: show A♠ / 2♣ (confirmed 2026-10-31) ----------
+
+function opening(state: TableState, playerId: string, showCards: unknown): void {
+  const round = requireRound(state);
+  const hand = requireHand(round, playerId);
+  if (!round.opening) fail('Play has started: too late to show A♠ or 2♣');
+  if (round.opening.decided.includes(playerId)) fail('You have already answered');
+  if (showCards === true) {
+    const cards = handCards(hand).filter(isOpeningCard);
+    if (cards.length === 0) fail('You have no A♠ or 2♣');
+    const points = openingPoints(cards);
+    const shown: OpeningShow = { by: playerId, cards: structuredClone(cards), points };
+    (round.openingShows ??= []).push(shown);
+    payOpening(state, { seats: round.seats, openingShows: [shown] }, 1);
+    record(round, { by: playerId, kind: 'openingShow', cards: shown.cards, points });
+  } else if (showCards !== false) {
+    fail('Show or skip');
+  }
+  round.opening.decided.push(playerId);
+  if (round.seats.every((id) => round.opening!.decided.includes(id))) round.opening = null;
+}
+
+/** Every other player in the round pays the shower (`sign` -1 gives it back). */
+function payOpening(state: TableState, round: Pick<RoundState, 'seats' | 'openingShows'>, sign: 1 | -1): void {
+  for (const s of round.openingShows ?? []) {
+    for (const id of round.seats) {
+      if (id === s.by) continue;
+      state.totals[id] = (state.totals[id] ?? 0) - sign * s.points;
+      state.totals[s.by] = (state.totals[s.by] ?? 0) + sign * s.points;
+    }
+  }
+}
+
+/** Net per player from A♠ / 2♣ shown this round. */
+function openingNet(round: RoundState, playerId: string): number {
+  let net = 0;
+  for (const s of round.openingShows ?? []) {
+    if (s.by === playerId) net += s.points * (round.seats.length - 1);
+    else net -= s.points;
+  }
+  return net;
+}
+
 // ---------- Declare and settle (SPEC 5, 6) ----------
 
 function declare(state: TableState, playerId: string, discardId: unknown): void {
@@ -522,13 +582,20 @@ function declare(state: TableState, playerId: string, discardId: unknown): void 
       unused: r.unused,
       pays: payment?.toDeclarer ?? 0,
       net,
+      openingNet: openingNet(round, id),
       // Declarer: their own arrangement. Others: the automatic best arrangement that was scored.
       sets: r.sets,
       loose: r.loose,
     };
   });
   state.nextDealer = playerId;
-  state.result = { roundNo: round.roundNo, declarer: playerId, joker: picked, rows };
+  state.result = {
+    roundNo: round.roundNo,
+    declarer: playerId,
+    joker: picked,
+    rows,
+    openingShows: structuredClone(round.openingShows ?? []),
+  };
   state.round = null;
   state.phase = 'roundOver';
 }
@@ -590,6 +657,10 @@ export function viewFor(state: TableState, playerId: string | null, connected: R
           }
         : null,
       awaitingPick: round.awaitingPick,
+      opening: round.opening
+        ? { waitingFor: round.seats.filter((id) => !round.opening!.decided.includes(id)) }
+        : null,
+      openingShows: structuredClone(round.openingShows ?? []),
       lastAction: round.lastAction,
       events: [...(round.events ?? [])],
     };
@@ -618,6 +689,7 @@ const TYPES = new Set([
   'draw',
   'discard',
   'show',
+  'opening',
   'ack',
   'pickJoker',
   'declare',

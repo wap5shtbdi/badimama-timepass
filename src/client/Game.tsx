@@ -2,7 +2,16 @@
 
 import { type DragEvent, type PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from 'react';
 import type { TableView } from '../game/protocol';
-import { canDeclare, type Card as CardT, rankAbove, rankBelow, rankLabel, valuePoints } from '../rules';
+import {
+  canDeclare,
+  type Card as CardT,
+  isOpeningCard,
+  openingPoints,
+  rankAbove,
+  rankBelow,
+  rankLabel,
+  valuePoints,
+} from '../rules';
 import { Card, CardBack, type CardSize } from './Card';
 import { cardText } from './cards';
 import {
@@ -40,7 +49,7 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
   const hand = conn.hand;
   const joker = round.joker;
   const myTurn = round.turn === view.you;
-  const waiting = !!round.show || !!round.awaitingPick;
+  const waiting = !!round.show || !!round.awaitingPick || !!round.opening;
   const seen = !!me?.seen;
   const shown = !!me?.shown;
 
@@ -173,7 +182,9 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
   });
 
   const pill = waiting
-    ? round.show
+    ? round.opening
+      ? 'Before play: show A♠ / 2♣?'
+      : round.show
       ? 'Checking shown sets'
       : `${nameOf(view, round.awaitingPick)} ${round.awaitingPick === view.you ? 'pick' : 'is picking'} the joker`
     : myTurn
@@ -219,6 +230,7 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
             />
 
             <div className="actions" aria-live="polite">
+              {round.opening && <OpeningBox view={view} conn={conn} hand={hand} />}
               {round.show && round.show.by === view.you && (
                 <p className="hint">Waiting for {round.show.waitingFor.map((id) => nameOf(view, id)).join(', ')} to check your sets</p>
               )}
@@ -445,6 +457,55 @@ function EyeIcon() {
       <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
       <circle cx="12" cy="12" r="3" />
     </svg>
+  );
+}
+
+// ---------- Before play: show A♠ / 2♣ (2026-10-31) ----------
+
+function OpeningBox({ view, conn, hand }: { view: TableView; conn: TableConnection; hand: HandModel }) {
+  const waitingFor = view.round!.opening!.waitingFor;
+  const others = waitingFor.filter((id) => id !== view.you).map((id) => nameOf(view, id));
+  const shows = view.round!.openingShows.map((o) => (
+    <span key={o.by} className="opening-shown">
+      {eventText(view, { by: o.by, kind: 'openingShow', cards: o.cards, points: o.points })}
+    </span>
+  ));
+  if (!view.you || !waitingFor.includes(view.you)) {
+    return (
+      <>
+        {shows}
+        <p className="hint">Waiting for {others.join(', ')} to show A♠ / 2♣ or skip</p>
+      </>
+    );
+  }
+  const mine = allCards(hand)
+    .filter(isOpeningCard)
+    .sort((x, y) => x.rank - y.rank); // A♠ first, then 2♣
+  const pts = openingPoints(mine);
+  return (
+    <div className="show-ready">
+      {shows}
+      {mine.length > 0 ? (
+        <>
+          <strong>You have {mine.map(cardText).join(' ')}</strong>
+          <span>Show them: everyone pays you {pts} now.</span>
+          <button type="button" className="btn btn-gold" onClick={() => conn.send({ type: 'opening', show: true })}>
+            Show · +{pts} each
+          </button>
+          <button type="button" className="btn btn-small btn-ghost" onClick={() => conn.send({ type: 'opening', show: false })}>
+            Don't show
+          </button>
+        </>
+      ) : (
+        <>
+          <strong>No A♠ or 2♣</strong>
+          <span>Tap Ready to start play.</span>
+          <button type="button" className="btn btn-gold" onClick={() => conn.send({ type: 'opening', show: false })}>
+            Ready
+          </button>
+        </>
+      )}
+    </div>
   );
 }
 

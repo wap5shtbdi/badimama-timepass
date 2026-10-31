@@ -20,6 +20,8 @@ export type ClientMessage =
   | { type: 'discard'; cardId: string }
   /** Show 3 pure sets to see the joker. `setIndexes` picks which of your sets (default: the first 3 pure ones). */
   | { type: 'show'; setIndexes?: number[] }
+  /** Before play: show your A♠ / 2♣ (show: true) or skip (show: false). Everyone answers once. */
+  | { type: 'opening'; show: boolean }
   /** "OK, I've seen them" for the pending show. */
   | { type: 'ack' }
   /** First shower picks the joker: index into the face-down stock spread (0 … stockCount-1). */
@@ -86,6 +88,10 @@ export interface RoundView {
   show: ShowView | null;
   /** Player who must pick the joker now (everyone acknowledged their first show). */
   awaitingPick: string | null;
+  /** Before play: who still has to show their A♠ / 2♣ or skip. Null once play has started. */
+  opening: { waitingFor: string[] } | null;
+  /** A♠ / 2♣ shown this round (public). */
+  openingShows: OpeningShow[];
   lastAction: LastAction | null;
   /** Recent actions this round, oldest first (up to 12). */
   events: LastAction[];
@@ -97,7 +103,15 @@ export type LastAction =
   | { by: string; kind: 'drewDiscard'; card: Card }
   | { by: string; kind: 'discarded'; card: Card }
   | { by: string; kind: 'showed' }
+  | { by: string; kind: 'openingShow'; cards: Card[]; points: number }
   | { by: string; kind: 'sawJoker' };
+
+/** A♠ / 2♣ shown before play: every other player paid `points` to `by` straight away. */
+export interface OpeningShow {
+  by: string;
+  cards: Card[];
+  points: number;
+}
 
 export interface ResultRow {
   player: string;
@@ -112,8 +126,10 @@ export interface ResultRow {
   unused: number;
   /** What this player pays the declarer (negative: the declarer pays them). 0 for the declarer. */
   pays: number;
-  /** This round's net for this player. */
+  /** This round's net for this player from the settlement. */
   net: number;
+  /** Net from A♠ / 2♣ shown before play (already paid when shown; not part of `net`). */
+  openingNet: number;
   /** Full hand, revealed at the end of the round. For everyone but the declarer, arranged automatically for scoring. */
   sets: Card[][];
   loose: Card[];
@@ -124,6 +140,7 @@ export interface RoundResult {
   declarer: string;
   joker: Card;
   rows: ResultRow[];
+  openingShows: OpeningShow[];
 }
 
 export interface TableView {

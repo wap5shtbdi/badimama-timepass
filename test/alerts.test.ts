@@ -28,6 +28,11 @@ function table() {
       s = r.state;
     },
     view: (id: string) => viewFor(s, id, all),
+    /** Deal, then everyone skips showing A♠ / 2♣. */
+    start() {
+      g.do('p0', { type: 'start' });
+      for (const id of ['p0', 'p1', 'p2']) g.do(id, { type: 'opening', show: false });
+    },
   };
   return g;
 }
@@ -41,18 +46,27 @@ describe('turn alerts', () => {
     expect(alertFor(null, g.view('p1'))).toBeNull();
   });
 
-  it('the first player is alerted when the round starts; others are not', () => {
+  it('after the deal everyone is asked about A♠ / 2♣; the first player gets "your turn" when play starts', () => {
     const g = table();
     const lobbyMom = g.view('p1');
     const lobbyDad = g.view('p2');
     g.do('p0', { type: 'start' });
-    expect(alertFor(lobbyMom, g.view('p1'))).toBe('turn');
-    expect(alertFor(lobbyDad, g.view('p2'))).toBeNull();
+    const mom0 = g.view('p1');
+    expect(alertFor(lobbyMom, mom0)).toBe('check');
+    expect(alertFor(lobbyDad, g.view('p2'))).toBe('check');
+    g.do('p0', { type: 'opening', show: false });
+    g.do('p1', { type: 'opening', show: false });
+    const mom1 = g.view('p1');
+    expect(alertFor(mom0, mom1)).toBeNull(); // still waiting for Dad
+    const dad1 = g.view('p2');
+    g.do('p2', { type: 'opening', show: false });
+    expect(alertFor(mom1, g.view('p1'))).toBe('turn');
+    expect(alertFor(dad1, g.view('p2'))).toBeNull();
   });
 
   it('alerts when the turn passes to you, once', () => {
     const g = table();
-    g.do('p0', { type: 'start' });
+    g.start();
     g.do('p1', { type: 'draw', from: 'stock' });
     const before = g.view('p2');
     g.do('p1', { type: 'discard', cardId: g.s.round!.hands.p1!.loose[0]!.id });
@@ -67,7 +81,7 @@ describe('turn alerts', () => {
 
   it('asks the others to check a show, then the shower to pick; no extra turn alert after', () => {
     const g = table();
-    g.do('p0', { type: 'start' });
+    g.start();
     g.s.round!.hands.p1 = {
       sets: [cards('a', '4S 5S 6S'), cards('b', '9D 10D JD'), cards('c', 'KC KC KC')],
       loose: cards('d', 'QS QS 2H JH 3D AC 2C 5C 9C 4H 10S 8C'),

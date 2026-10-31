@@ -45,6 +45,14 @@ Mockups: Design canvas "Marriage card game mockups" (claude.ai artifact HeghxSFR
 - Players who never saw the joker STILL score the value cards they hold.
 - Overlapping combos: score the grouping that gives the most points. Confirmed example: 6♥ 6♥ 7♥ = pair 6♥6♥ (5) + 7♥ (3) = 8.
 
+## 4b. A♠ and 2♣ shown before play (confirmed 2026-10-31)
+- Right after the deal, before anyone draws, every player answers once: show their A♠ / 2♣, or skip ("Don't show", or "Ready" if they have none). Play starts when all have answered (the game waits, like the show check).
+- Points per card kind: one = 2, two = 5, three = 10. A♠ and 2♣ count separately: A♠ + 2♣ = 2 + 2; A♠ + 2♣ 2♣ = 2 + 5; A♠ A♠ + 2♣ = 5 + 2.
+- Paid straight away: every other player in the round pays the shower those points (running totals change at once).
+- The cards stay in the hand, free to use in sets or throw.
+- Everyone sees what was shown (toast, round log, result screen "Paid before play"). Stopping the round (host) gives these payments back.
+- Not in the settlement formula: the result shows them separately; totals = settlement + these.
+
 ## 5. Winning (confirmed)
 - A player who has seen the joker arranges all 21 cards into sets of 3+ and declares.
 

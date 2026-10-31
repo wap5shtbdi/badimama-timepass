@@ -109,6 +109,14 @@ async function tableOf(players: string[]) {
   return { code, clients, stub: env.TABLES.getByName(code) };
 }
 
+/** Host deals, then everyone skips showing A♠ / 2♣, so play can start. */
+async function startPlay(clients: Client[]): Promise<void> {
+  clients[0]!.send({ type: 'start' });
+  await Promise.all(clients.map((c) => c.until((v) => v.phase === 'playing')));
+  for (const c of clients) c.send({ type: 'opening', show: false });
+  await Promise.all(clients.map((c) => c.until((v) => v.round?.opening === null)));
+}
+
 // ---------- HTTP routes ----------
 
 describe('routes', () => {
@@ -192,9 +200,23 @@ describe('table over WebSockets', () => {
     for (const id of momCards) expect(vikramJson).not.toContain(id);
   });
 
+  it('after the deal, play waits until everyone has shown A♠ / 2♣ or skipped', async () => {
+    const { clients } = await tableOf(['Vikram', 'Mom']);
+    clients[0]!.send({ type: 'start' });
+    const v = await clients[1]!.until((x) => x.phase === 'playing');
+    expect(v.round!.opening!.waitingFor).toHaveLength(2);
+    const err = clients[1]!.nextError();
+    clients[1]!.send({ type: 'draw', from: 'stock' });
+    expect(await err).toMatch(/to show A♠ \/ 2♣ or skip/);
+    for (const c of clients) c.send({ type: 'opening', show: false });
+    await clients[1]!.until((x) => x.round?.opening === null);
+    clients[1]!.send({ type: 'draw', from: 'stock' });
+    await clients[1]!.until((x) => x.round?.stage === 'discard');
+  });
+
   it('turn flow: draw and discard reach everyone', async () => {
     const { clients } = await tableOf(['Vikram', 'Mom', 'Dad']);
-    clients[0]!.send({ type: 'start' });
+    await startPlay(clients);
     const v = await clients[1]!.until((x) => x.phase === 'playing');
     const momId = v.you!;
     expect(v.round!.turn).toBe(momId);
@@ -211,7 +233,7 @@ describe('table over WebSockets', () => {
 
   it('survives hibernation: state reloads and sockets keep their player', async () => {
     const { clients, stub } = await tableOf(['Vikram', 'Mom']);
-    clients[0]!.send({ type: 'start' });
+    await startPlay(clients);
     const before = await clients[1]!.until((v) => v.phase === 'playing');
 
     await evictDurableObject(stub); // in-memory state gone, WebSockets hibernated (not closed)
@@ -256,7 +278,7 @@ describe('table over WebSockets', () => {
 
   it('show → acknowledge → pick: only the shower learns the joker', async () => {
     const { clients, stub } = await tableOf(['Vikram', 'Mom', 'Dad']);
-    clients[0]!.send({ type: 'start' });
+    await startPlay(clients);
     const momView = await clients[1]!.until((v) => v.phase === 'playing');
     const momId = momView.you!;
 

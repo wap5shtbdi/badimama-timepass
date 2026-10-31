@@ -19,10 +19,14 @@ export function alertFor(prev: TableView | null, next: TableView): AlertKind | n
   if (!prev || !me || !r || next.phase !== 'playing' || !r.hand) return null;
   const p = prev.phase === 'playing' ? prev.round : null;
   if (r.awaitingPick === me && p?.awaitingPick !== me) return 'pick';
-  if (r.show && r.show.by !== me && !r.show.acks.includes(me) && p?.show?.by !== r.show.by) return 'check';
-  // Only when the turn passes to me (a new round counts), not when my own show or pick resolves.
   const newRound = !p || p.roundNo !== r.roundNo;
-  if (r.turn === me && (newRound || p.turn !== me)) return 'turn';
+  // Right after the deal: everyone is asked to show their A♠ / 2♣ or skip.
+  if (r.opening?.waitingFor.includes(me) && (newRound || !p?.opening)) return 'check';
+  if (r.opening) return null;
+  if (r.show && r.show.by !== me && !r.show.acks.includes(me) && p?.show?.by !== r.show.by) return 'check';
+  // Only when the turn passes to me (a new round, or play starting after the A♠ / 2♣ showing,
+  // counts), not when my own show or pick resolves.
+  if (r.turn === me && (newRound || p.turn !== me || !!p.opening)) return 'turn';
   return null;
 }
 

@@ -115,3 +115,27 @@ export function settle(declarer: number, players: PlayerResult[]): { payments: P
   });
   return { payments, net };
 }
+
+// ---------- Opening bonus: A♠ and 2♣ shown before play (confirmed 2026-10-31) ----------
+// Right after the deal each player may show the A♠ and 2♣ they hold; every other player pays
+// them straight away. Each card kind scores on its own: one = 2, two = 5, three = 10.
+// A♠ + 2♣ = 2 + 2 = 4; A♠ + 2♣ 2♣ = 2 + 5 = 7; A♠ A♠ + 2♣ = 5 + 2 = 7.
+
+export const OPENING = { one: 2, two: 5, three: 10 } as const;
+
+export function isOpeningCard(card: Pick<Card, 'rank' | 'suit'>): boolean {
+  return (card.rank === 1 && card.suit === 'S') || (card.rank === 2 && card.suit === 'C');
+}
+
+function openingKindPoints(n: number): number {
+  if (n >= 3) return OPENING.three;
+  if (n === 2) return OPENING.two;
+  return n * OPENING.one;
+}
+
+/** Points each other player pays for showing these cards (only A♠ and 2♣ count). */
+export function openingPoints(cards: Pick<Card, 'rank' | 'suit'>[]): number {
+  const aces = cards.filter((c) => c.rank === 1 && c.suit === 'S').length;
+  const twos = cards.filter((c) => c.rank === 2 && c.suit === 'C').length;
+  return openingKindPoints(aces) + openingKindPoints(twos);
+}

@@ -6,6 +6,7 @@ import { Lobby } from './Lobby';
 import { Result } from './Result';
 import { alertFor, playAlert } from './alerts';
 import { alertPrefs, fourColorDeck, lastTable, saveAlertPrefs, saveFourColorDeck, saveLastTable, saveName, savedName } from './storage';
+import { eventText } from './text';
 import { useTable } from './useTable';
 
 // ---------- Tiny router: "/" home, "/t/CODE" a table ----------
@@ -186,15 +187,24 @@ function Table({ code, name, go }: { code: string; name: string; go: (to: string
 
   useEffect(() => saveLastTable(code), [code]);
 
+  const { toast } = conn;
   // "It's your turn" (and "check the shown sets", "pick the joker"): vibrate and/or chime.
   const [alerts, setAlerts] = useState(alertPrefs());
   const prevView = useRef<typeof view>(null);
   useEffect(() => {
     if (!view) return;
     const kind = alertFor(prevView.current, view);
+    // Someone showed A♠ / 2♣: tell everyone else (their totals just went down).
+    const before = prevView.current?.round?.openingShows.length ?? null;
+    const shows = view.round?.openingShows ?? [];
+    if (before !== null && prevView.current?.round?.roundNo === view.round?.roundNo && shows.length > before) {
+      for (const o of shows.slice(before)) {
+        if (o.by !== view.you) toast(eventText(view, { by: o.by, kind: 'openingShow', cards: o.cards, points: o.points }), 'info');
+      }
+    }
     prevView.current = view;
     if (kind) playAlert(kind, alerts);
-  }, [view, alerts]);
+  }, [view, alerts, toast]);
 
   // Browser tab title shows when it's your turn (handy on a PC with other tabs open).
   const myTurn = view?.phase === 'playing' && !!view.you && view.round?.turn === view.you;
