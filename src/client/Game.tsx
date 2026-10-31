@@ -171,7 +171,7 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
       {canPackAny && !(win && pairsNow >= win.pack) && (
         <button
           type="button"
-          className={`btn btn-small ${confirmOut === 'pack' ? 'btn-danger' : 'btn-ghost'}`}
+          className={`btn ${confirmOut === 'pack' ? 'btn-danger' : 'btn-pack'}`}
           disabled={afterDraw && !putDown}
           title={afterDraw && !putDown ? 'Tap the card to put down first' : undefined}
           onClick={() => twice('pack', () => conn.send(withDiscard({ type: 'pack' as const })))}

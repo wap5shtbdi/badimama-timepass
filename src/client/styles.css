@@ -124,6 +124,12 @@ button {
   background: var(--danger);
   color: #3a0000;
 }
+/* Pack: a real button, outlined in soft red (it gives up the round), filled red on the confirm tap. */
+.btn-pack {
+  background: rgba(255, 138, 128, 0.12);
+  border: 2px solid var(--danger);
+  color: var(--cream);
+}
 .btn-ghost {
   background: transparent;
   color: var(--cream);
