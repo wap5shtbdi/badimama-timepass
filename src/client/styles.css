@@ -609,6 +609,14 @@ button.card {
 }
 .mat-card .card {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  filter: brightness(0.86); /* older throws a little darker */
+}
+/* The last thrown card always stands out, whoever's turn it is. */
+.mat-card.mat-top .card {
+  filter: none;
+  box-shadow:
+    0 0 0 3px var(--cream),
+    0 6px 12px rgba(0, 0, 0, 0.5);
 }
 .mat-card.pile-take .card {
   box-shadow:

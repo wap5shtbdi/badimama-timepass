@@ -47,7 +47,7 @@ export function Result({ view, conn, fourColor, onLeave }: { view: TableView; co
           <span role="columnheader">Player</span>
           <span role="columnheader">Saw joker</span>
           <span role="columnheader">Value points</span>
-          <span role="columnheader">Unused cards</span>
+          <span role="columnheader">Points in hand</span>
           <span role="columnheader" className="right">
             Pays {nm(declarer)}
           </span>
@@ -177,7 +177,7 @@ export function Result({ view, conn, fourColor, onLeave }: { view: TableView; co
           </div>
           {openRow.loose.length > 0 && (
             <>
-              <h3 className="muted small">Unused</h3>
+              <h3 className="muted small">Cards not in sets</h3>
               <div className="set-cards set-cards-open">
                 {openRow.loose.map((c) => (
                   <span className="slot slot-sm" key={c.id}>

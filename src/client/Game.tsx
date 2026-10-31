@@ -423,7 +423,7 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
               <span className="counter" title={seen ? 'Card points you would pay if someone declared now' : undefined}>
                 {seen && unused ? (
                   <>
-                    Unused <strong>{unused.points}</strong>
+                    Points in hand <strong>{unused.points}</strong>
                   </>
                 ) : (
                   <>
@@ -625,14 +625,16 @@ function DiscardPile({
         const a = hash(c.id);
         const b = hash(c.id + '*');
         // Older throws spread out; the top card lands near the middle.
-        const spread = top ? 0.12 : 1;
-        const x = (a - 0.5) * 2.6 * spread; // in card widths
-        const y = (b - 0.5) * 0.35 * spread; // in card heights
-        const rot = (hash(c.id + '/') - 0.5) * (top ? 12 : 40);
+        // Older throws peek out around the top card (less scattered, 2026-10-31); the top card
+        // lies in the middle, nearly straight.
+        const spread = top ? 0 : 1;
+        const x = (a - 0.5) * 1.7 * spread; // in card widths
+        const y = (b - 0.5) * 0.2 * spread; // in card heights
+        const rot = (hash(c.id + '/') - 0.5) * (top ? 6 : 24);
         return (
           <span
             key={c.id}
-            className={`mat-card${top && canTake ? ' pile-take' : ''}`}
+            className={`mat-card${top ? ' mat-top' : ''}${top && canTake ? ' pile-take' : ''}`}
             style={{ transform: `translate(calc(-50% + ${x} * var(--md-w)), calc(-50% + ${y} * var(--md-h))) rotate(${rot}deg)`, zIndex: i }}
           >
             <Card card={c} size="md" joker={joker} fourColor={fourColor} onTap={top && canTake ? onTake : undefined} />
