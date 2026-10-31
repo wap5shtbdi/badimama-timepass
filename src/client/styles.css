@@ -676,6 +676,19 @@ button.card {
   font-size: 12px;
   color: var(--muted);
 }
+/* Before play (A♠ / 2♣): wider, with the two choices side by side, so it fits a phone. */
+.actions-wide {
+  max-width: 300px;
+}
+.opening-btns {
+  display: flex;
+  gap: 6px;
+}
+.opening-btns .btn {
+  flex: 1 1 auto;
+  white-space: nowrap;
+  padding: 0 10px;
+}
 .show-ready strong {
   color: var(--gold);
   font-size: 14px;
@@ -1233,11 +1246,11 @@ button.card {
     display: none; /* the gold glow on the stock already says it */
   }
   /* Short screens: just the gold button (it says "Show 3 sets"), so Pack still fits below it. */
-  .show-ready > span,
-  .show-ready > strong {
+  .show-sets > span,
+  .show-sets > strong {
     display: none;
   }
-  .show-ready {
+  .show-sets {
     padding: 0;
     border: 0;
     background: none;

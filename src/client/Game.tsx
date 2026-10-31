@@ -139,8 +139,14 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
   const afterDraw = round.stage === 'discard';
   // Pairs you'd keep: all cards before drawing, or all but the card you put down after drawing.
   const pairsNow = !win ? 0 : !win.afterDraw ? countPairs(all) : putDown ? countPairs(all.filter((c) => c.id !== putDown.id)) : 0;
-  const pairsMaybe = win?.afterDraw && !putDown && countPairs(all) >= win.pack;
-  const canPackAny = myTurn && !waiting && !packedMe;
+  const pairsMaybe = !!win?.afterDraw && win.declare !== null && !putDown && countPairs(all) >= win.declare;
+  // Declaring wins outright, so when you can declare it's the only way out we offer (2026-10-31).
+  const canDeclareSets = !!declareCheck?.ok;
+  const canDeclarePairs = !!win && win.declare !== null && pairsNow >= win.declare;
+  const canDeclareNow = canDeclareSets || canDeclarePairs;
+  const canPackPairs = !!win && win.pack !== null && !win.afterDraw && pairsNow >= win.pack && !canDeclareNow;
+  // Packing only before taking a card (confirmed 2026-10-31).
+  const canPackAny = myTurn && !waiting && !packedMe && round.stage === 'draw' && !canDeclareNow && !canPackPairs;
   const twice = (key: string, run: () => void) => {
     if (confirmOut !== key) return setConfirmOut(key);
     setConfirmOut(null);
@@ -149,7 +155,7 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
   const withDiscard = <T extends object>(msg: T) => (afterDraw && putDown ? { ...msg, discardId: putDown.id } : msg);
   const outButtons = (
     <>
-      {win && pairsNow >= win.declare && (
+      {canDeclarePairs && (
         <button
           type="button"
           className={`btn ${confirmOut === 'pdeclare' ? 'btn-gold' : 'btn-outline'}`}
@@ -158,7 +164,7 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
           {confirmOut === 'pdeclare' ? 'Tap again: declare' : `Declare · ${pairsNow} pairs`}
         </button>
       )}
-      {win && pairsNow >= win.pack && (
+      {canPackPairs && (
         <button
           type="button"
           className={`btn btn-small ${confirmOut === 'ppack' ? 'btn-gold' : 'btn-outline'}`}
@@ -167,16 +173,14 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
           {confirmOut === 'ppack' ? 'Tap again: pack' : `Pack · ${pairsNow} pairs (0 pts)`}
         </button>
       )}
-      {pairsMaybe && <p className="hint small">Pairs: tap the card to put down, then Pack or Declare</p>}
-      {canPackAny && !(win && pairsNow >= win.pack) && (
+      {pairsMaybe && <p className="hint small">Pairs: tap the card to put down, then Declare</p>}
+      {canPackAny && (
         <button
           type="button"
           className={`btn ${confirmOut === 'pack' ? 'btn-danger' : 'btn-pack'}`}
-          disabled={afterDraw && !putDown}
-          title={afterDraw && !putDown ? 'Tap the card to put down first' : undefined}
-          onClick={() => twice('pack', () => conn.send(withDiscard({ type: 'pack' as const })))}
+          onClick={() => twice('pack', () => conn.send({ type: 'pack' as const }))}
         >
-          {confirmOut === 'pack' ? 'Tap again: pack (5 pts)' : afterDraw && putDown ? `Pack · put down ${cardText(putDown)}` : 'Pack (5 pts)'}
+          {confirmOut === 'pack' ? 'Tap again: pack (5 pts)' : 'Pack (5 pts)'}
         </button>
       )}
     </>
@@ -289,13 +293,13 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
               onDrop={canDiscard ? dropOn((ids) => ids.length === 1 && discard(ids[0] as string)) : undefined}
             />
 
-            <div className="actions" aria-live="polite">
+            <div className={`actions${round.opening ? ' actions-wide' : ''}`} aria-live="polite">
               {round.opening && <OpeningBox view={view} conn={conn} hand={hand} />}
               {round.show && round.show.by === view.you && (
                 <p className="hint">Waiting for {round.show.waitingFor.map((id) => nameOf(view, id)).join(', ')} to check your sets</p>
               )}
               {!waiting && canShowNow && (
-                <div className="show-ready">
+                <div className="show-ready show-sets">
                   <strong>3 sets ready</strong>
                   <span>Everyone checks them, then you see the joker.</span>
                   <button type="button" className="btn btn-gold" onClick={() => conn.send({ type: 'show' })}>
@@ -303,12 +307,12 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
                   </button>
                 </div>
               )}
-              {canDiscard && sel.length === 1 && putDown && (
+              {canDiscard && sel.length === 1 && putDown && !canDeclareNow && (
                 <button type="button" className="btn btn-gold" onClick={() => discard(putDown.id)}>
                   Discard {cardText(putDown)}
                 </button>
               )}
-              {canDiscard && sel.length === 0 && !canShowNow && <p className="hint">Tap a card, then Discard</p>}
+              {canDiscard && sel.length === 0 && !canShowNow && !canDeclareNow && <p className="hint">Tap a card, then Discard</p>}
               {canDraw && sel.length === 0 && !canShowNow && <p className="hint">Draw from the stock, or take the top card of the pile</p>}
               {declareCheck && (
                 <button
@@ -550,13 +554,15 @@ function OpeningBox({ view, conn, hand }: { view: TableView; conn: TableConnecti
       {mine.length > 0 ? (
         <>
           <strong>You have {mine.map(cardText).join(' ')}</strong>
-          <span>Show them: everyone pays you {pts} now.</span>
-          <button type="button" className="btn btn-gold" onClick={() => conn.send({ type: 'opening', show: true })}>
-            Show · +{pts} each
-          </button>
-          <button type="button" className="btn btn-small btn-ghost" onClick={() => conn.send({ type: 'opening', show: false })}>
-            Don't show
-          </button>
+          <span>Show them and everyone pays you {pts}.</span>
+          <div className="opening-btns">
+            <button type="button" className="btn btn-gold" onClick={() => conn.send({ type: 'opening', show: true })}>
+              Show A♠ and 2♣
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={() => conn.send({ type: 'opening', show: false })}>
+              Don't show
+            </button>
+          </div>
         </>
       ) : (
         <>

@@ -863,7 +863,7 @@ describe('pairs and packing (2026-10-31)', () => {
     expect(Object.values(g.state.totals).reduce((a, b) => a + b, 0)).toBe(0);
   });
 
-  it('pairs only count on the first turn before drawing, or after drawing once everyone has had a turn', () => {
+  it('pairs: first turn before drawing; later, pack before drawing and declare after drawing', () => {
     const g = withPairs(6);
     g.do(1, { type: 'draw', from: 'stock' });
     expect(g.view(1).round!.pairsWindow).toBeNull();
@@ -873,17 +873,24 @@ describe('pairs and packing (2026-10-31)', () => {
       g.do(p, { type: 'draw', from: 'stock' });
       g.do(p, { type: 'discard', cardId: g.hand(p).loose[0]!.id });
     }
-    // Everyone has had a turn: now 6 to pack / 7 to declare, after drawing.
-    expect(g.view(1).round!.pairsWindow).toEqual({ pack: 6, declare: 7, afterDraw: true });
-    expect(g.try(1, { type: 'pairs', action: 'pack' })).toMatch(/Draw a card first/);
+    // Everyone has had a turn: 6 pairs to pack BEFORE drawing, 7 to declare AFTER drawing.
+    expect(g.view(1).round!.pairsWindow).toEqual({ pack: 6, declare: null, afterDraw: false });
+    expect(g.try(1, { type: 'pairs', action: 'pack', discardId: g.hand(1).loose[0]!.id })).toMatch(/no card to put down/);
+    expect(g.try(1, { type: 'pairs', action: 'declare' })).toMatch(/Draw a card first/);
     g.do(1, { type: 'draw', from: 'stock' });
-    expect(g.try(1, { type: 'pairs', action: 'pack' })).toMatch(/Choose the card to put down/);
-    // Putting down one of a pair leaves 5: not enough.
+    expect(g.view(1).round!.pairsWindow).toEqual({ pack: null, declare: 7, afterDraw: true });
+    // Once you've taken a card you finish the turn: no packing, pairs or not.
+    expect(g.try(1, { type: 'pairs', action: 'pack', discardId: g.hand(1).loose.at(-1)!.id })).toMatch(/only pack before taking a card/);
+    expect(g.try(1, { type: 'pairs', action: 'declare' })).toMatch(/Choose the card to put down/);
     const pairCard = g.hand(1).loose.find((c) => c.rank === 3 && c.suit === 'D')!;
-    expect(g.try(1, { type: 'pairs', action: 'pack', discardId: pairCard.id })).toMatch(/need 6 pairs to pack, you have 5/);
-    const spare = g.hand(1).loose.find((c) => countPairs(g.hand(1).loose.filter((x) => x !== c)) === 6)!;
-    g.do(1, { type: 'pairs', action: 'pack', discardId: spare.id });
-    expect(g.round.discard.at(-1)).toEqual(spare);
+    expect(g.try(1, { type: 'pairs', action: 'declare', discardId: pairCard.id })).toMatch(/need 7 pairs to declare, you have 5/);
+    g.do(1, { type: 'discard', cardId: g.hand(1).loose.at(-1)!.id });
+    for (const p of [2, 0]) {
+      g.do(p, { type: 'draw', from: 'stock' });
+      g.do(p, { type: 'discard', cardId: g.hand(p).loose[0]!.id });
+    }
+    expect(countPairs(g.hand(1).loose)).toBe(6);
+    g.do(1, { type: 'pairs', action: 'pack' });
     g.do(0, { type: 'ack' });
     g.do(2, { type: 'ack' });
     expect(g.view(2).players[1]!.packed).toBe('pairs');
@@ -894,8 +901,16 @@ describe('pairs and packing (2026-10-31)', () => {
     g.do(0, { type: 'start' });
     expect(g.try(2, { type: 'pack' })).toMatch(/Mom's turn/);
     g.do(1, { type: 'draw', from: 'stock' });
-    expect(g.try(1, { type: 'pack' })).toMatch(/Choose the card to put down/);
-    g.do(1, { type: 'pack', discardId: g.hand(1).loose[0]!.id });
+    // Only before taking a card (confirmed 2026-10-31): after drawing you finish the turn.
+    expect(g.try(1, { type: 'pack' })).toMatch(/only pack before taking a card/);
+    expect(g.try(1, { type: 'pack', discardId: g.hand(1).loose[0]!.id })).toMatch(/only pack before taking a card/);
+    g.do(1, { type: 'discard', cardId: g.hand(1).loose.at(-1)!.id });
+    for (const p of [2, 0]) {
+      g.do(p, { type: 'draw', from: 'stock' });
+      g.do(p, { type: 'discard', cardId: g.hand(p).loose[0]!.id });
+    }
+    expect(g.try(1, { type: 'pack', discardId: g.hand(1).loose[0]!.id })).toMatch(/no card to put down/);
+    g.do(1, { type: 'pack' });
     expect(g.hand(1).loose).toHaveLength(21);
     expect(g.view(0).players[1]!.packed).toBe('any');
     expect(g.turnPlayer()).toBe(2);

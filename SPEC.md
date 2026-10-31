@@ -60,9 +60,10 @@ Mockups: Design canvas "Marriage card game mockups" (claude.ai artifact HeghxSFR
 - A pair = two identical cards (same rank and suit). Three alike count as one pair (the third is spare); in normal play they are still a trail.
 - Pack or declare with pairs, always on your own turn, pairs shown to everyone first (same "OK, I've seen them" check; packed players don't have to check):
   - First turn, before drawing: 5 pairs to pack, 6 pairs to declare.
-  - Once everyone has had a turn: 6 pairs to pack, 7 to declare, after drawing (put one card down).
+  - Once everyone has had a turn: 6 pairs to pack BEFORE drawing (changed 2026-10-31: packing is only ever before drawing), 7 pairs to declare after drawing (put one card down).
   - Declaring with pairs: if nobody has picked the joker yet, the declarer picks it first, then the round ends. Others pay as usual (card points of their auto-arranged hands + declarer's value − own value).
-- Pack without pairs: on your own turn, any time after the round has started (after drawing: put one card down).
+- Pack without pairs: on any of your own turns after the round has started, but only BEFORE taking a card (confirmed 2026-10-31). Once you've drawn that turn you must finish the turn; you can pack on a later turn.
+- Buttons (confirmed 2026-10-31): when you can declare (sets or pairs), Declare is the only way out offered: no Pack buttons and no Discard button. The A♠ / 2♣ button says "Show A♠ and 2♣"; the points everyone pays are in the line above it.
 - Packed players are out of the round: their turns are skipped, they see the joker from then on.
 - At the end, a packed player pays fixed card points + declarer's value − own value: 0 after packing with pairs, 5 after packing without. Their values still count (if negative, the declarer pays them).
 - Server choices: can't pack during the A♠ / 2♣ question, a show check or a joker pick. If everyone else packs, the last player is the declarer automatically (confirmed 2026-10-31); if nobody has picked the joker yet, they pick it first, then the round ends.

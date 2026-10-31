@@ -500,23 +500,18 @@ function packPlayer(round: RoundState, id: string, how: Packed['how']): void {
 }
 
 /**
- * Pack on your own turn, any time after the round has started (confirmed 2026-10-31):
- * 5 card points + value difference. After drawing, you put one card down as you pack.
+ * Pack on your own turn, after the round has started (confirmed 2026-10-31): 5 card points +
+ * value difference. Only BEFORE drawing (confirmed 2026-10-31): once you have taken a card
+ * that turn, you finish the turn.
  */
 function packAnyTime(state: TableState, playerId: string, discardId: unknown): void {
   const round = requireRound(state);
-  const hand = requireHand(round, playerId);
+  requireHand(round, playerId);
   if (isPacked(round, playerId)) fail('You have already packed');
   requireNotWaiting(state, round);
   requireTurn(state, round, playerId);
-  if (round.stage === 'discard') {
-    if (discardId === undefined) fail('Choose the card to put down');
-    const card = takeFromHand(hand, discardId);
-    round.discard.push(card);
-    record(round, { by: playerId, kind: 'discarded', card });
-  } else if (discardId !== undefined) {
-    fail('Draw a card first');
-  }
+  if (round.stage !== 'draw') fail('You can only pack before taking a card');
+  if (discardId !== undefined) fail('Before drawing there is no card to put down');
   packPlayer(round, playerId, 'any');
   lastOneLeft(state, round);
 }
@@ -556,8 +551,14 @@ function pairs(state: TableState, playerId: string, action: unknown, discardId: 
     if (discardId !== undefined) fail('Before drawing there is no card to put down');
     rule = PAIRS.firstTurn;
     keep = handCards(hand);
+  } else if (fullRound && action === 'pack') {
+    // Packing is only before drawing (confirmed 2026-10-31), pairs included.
+    if (round.stage !== 'draw') fail('You can only pack before taking a card');
+    if (discardId !== undefined) fail('Before drawing there is no card to put down');
+    rule = PAIRS.later;
+    keep = handCards(hand);
   } else if (fullRound) {
-    if (round.stage !== 'discard') fail('Draw a card first: with pairs you pack or declare after drawing');
+    if (round.stage !== 'discard') fail('Draw a card first: with pairs you declare after drawing');
     if (discardId === undefined) fail('Choose the card to put down');
     rule = PAIRS.later;
     keep = handCards(hand).filter((c) => c.id !== discardId);
@@ -851,7 +852,12 @@ function pairsWindowFor(round: RoundState, playerId: string | null): RoundView['
   if (round.opening || round.show || round.awaitingPick) return null;
   const played = round.played ?? [];
   if (!played.includes(playerId) && round.stage === 'draw') return { ...PAIRS.firstTurn, afterDraw: false };
-  if (round.seats.every((id) => played.includes(id))) return { ...PAIRS.later, afterDraw: true };
+  if (round.seats.every((id) => played.includes(id))) {
+    // Later: pack before drawing, declare after drawing (confirmed 2026-10-31).
+    return round.stage === 'draw'
+      ? { pack: PAIRS.later.pack, declare: null, afterDraw: false }
+      : { pack: null, declare: PAIRS.later.declare, afterDraw: true };
+  }
   return null;
 }
 

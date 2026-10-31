@@ -105,7 +105,7 @@ export interface RoundView {
   /** The joker pick ends the round (declaring with pairs, or everyone else packed). */
   pickThenDeclare: boolean;
   /** Your chance to pack / declare with pairs right now (your turn), or null. */
-  pairsWindow: { pack: number; declare: number; afterDraw: boolean } | null;
+  pairsWindow: { pack: number | null; declare: number | null; afterDraw: boolean } | null;
   /** Before play: who still has to show their A♠ / 2♣ or skip. Null once play has started. */
   opening: { waitingFor: string[] } | null;
   /** A♠ / 2♣ shown this round (public). */
