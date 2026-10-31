@@ -50,11 +50,11 @@ function CloseButton({ onClose }: { onClose: () => void }) {
   );
 }
 
-function SetsRow({ sets, joker, fourColor }: { sets: CardT[][]; joker: CardT | null; fourColor: boolean }) {
+function SetsRow({ sets, joker, fourColor, pairs }: { sets: CardT[][]; joker: CardT | null; fourColor: boolean; pairs?: boolean }) {
   return (
     <div className="sets-show">
       {sets.map((s, i) => {
-        const label = setLabel(s, joker);
+        const label = pairs ? { tone: 'ok', text: 'Pair' } : setLabel(s, joker);
         return (
           <div key={i} className={`set set-${label.tone}`}>
             <div className="set-head">
@@ -80,15 +80,19 @@ function SetsRow({ sets, joker, fourColor }: { sets: CardT[][]; joker: CardT | n
 export function ShowDialog({ view, conn, fourColor }: { view: TableView; conn: TableConnection; fourColor: boolean }) {
   const show = view.round!.show!;
   const acked = show.acks.includes(view.you ?? '');
-  const others = view.round!.hand ? view.players.filter((p) => p.inRound && p.id !== show.by) : [];
+  const others = view.round!.hand ? view.players.filter((p) => p.inRound && p.id !== show.by && !p.packed) : [];
+  const meOut = !!view.players.find((p) => p.id === view.you)?.packed;
+  const title =
+    show.kind === 'sets' ? `${nameOf(view, show.by)} is showing 3 sets` : `${nameOf(view, show.by)} is showing ${show.sets.length} pairs`;
+  const why = show.kind === 'sets' ? 'to see the joker' : show.kind === 'pack' ? 'to pack' : 'to declare';
   return (
-    <Modal label={`${nameOf(view, show.by)} is showing 3 sets`}>
+    <Modal label={title}>
       <div className="modal-head">
-        <h2>{nameOf(view, show.by)} is showing 3 sets</h2>
-        <span className="muted">to see the joker</span>
+        <h2>{title}</h2>
+        <span className="muted">{why}</span>
       </div>
       {/* Pure sets only: labels as for someone who hasn't seen the joker. */}
-      <SetsRow sets={show.sets} joker={null} fourColor={fourColor} />
+      <SetsRow sets={show.sets} joker={null} fourColor={fourColor} pairs={show.kind !== 'sets'} />
       <div className="modal-foot">
         <span className="muted">Checked:</span>
         {others.map((p) => {
@@ -102,7 +106,7 @@ export function ShowDialog({ view, conn, fourColor }: { view: TableView; conn: T
           );
         })}
         <span className="grow" />
-        {view.round!.hand && (
+        {view.round!.hand && !meOut && (
           <button type="button" className="btn btn-gold" disabled={acked} onClick={() => conn.send({ type: 'ack' })}>
             {acked ? 'Waiting for the others' : "OK, I've seen them"}
           </button>

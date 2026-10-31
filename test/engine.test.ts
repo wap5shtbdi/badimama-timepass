@@ -11,7 +11,7 @@ import {
   viewFor,
 } from '../src/game/engine';
 import type { ClientMessage } from '../src/game/protocol';
-import { type Card, checkSet, isOpeningCard, openingPoints, parseCard } from '../src/rules';
+import { type Card, checkSet, countPairs, isOpeningCard, openingPoints, parseCard } from '../src/rules';
 
 // ---------- Helpers ----------
 
@@ -805,6 +805,130 @@ describe('A♠ / 2♣ shown before play (2026-10-31)', () => {
     expect(row(1).openingNet).toBe(-5);
     // Totals = settlement + opening.
     for (const i of [0, 1, 2]) expect(g.state.totals[g.ids[i]!]).toBe(row(i).net + row(i).openingNet);
+  });
+});
+
+describe('pairs and packing (2026-10-31)', () => {
+  // 11 cards with no duplicates, to fill hands.
+  const FILL = 'KH 4D 8C JS 2H 6C 10D QC 3S 9C 7D';
+
+  it('counts pairs of identical cards; three alike is one pair', () => {
+    expect(countPairs(cards('p', '7S 7S 7S 7H 8D 8D 9C'))).toBe(2);
+    expect(countPairs(cards('p', '7S 7H 7D'))).toBe(0);
+  });
+
+  /** Mom (1) plays first; give her `pairs` pairs + filler. */
+  function withPairs(n: number): Game {
+    const g = new Game(3);
+    g.do(0, { type: 'start' });
+    const keys = ['AS', '3D', '5C', '9H', 'QS', 'JD', '4C'].slice(0, n);
+    const pairsPart = keys.flatMap((k) => [k, k]).join(' ');
+    const fill = FILL.split(' ').slice(0, 21 - 2 * n).join(' ');
+    g.setHand(1, [], cards('m', `${pairsPart} ${fill}`));
+    return g;
+  }
+
+  it('first turn, before drawing: 5 pairs to pack, others check, then she is out (card points 0)', () => {
+    const g = withPairs(5);
+    expect(g.view(1).round!.pairsWindow).toEqual({ pack: 5, declare: 6, afterDraw: false });
+    expect(g.try(1, { type: 'pairs', action: 'declare' })).toMatch(/need 6 pairs to declare, you have 5/);
+    g.do(1, { type: 'pairs', action: 'pack' });
+    expect(g.view(0).round!.show).toMatchObject({ kind: 'pack', by: g.ids[1] });
+    expect(g.view(0).round!.show!.sets).toHaveLength(5);
+    g.do(0, { type: 'ack' });
+    g.do(2, { type: 'ack' });
+    expect(g.view(0).players[1]!.packed).toBe('pairs');
+    expect(g.turnPlayer()).toBe(2); // her turn passed
+    // Packed players are skipped: Dad, Vikram, Dad, …
+    for (const p of [2, 0, 2]) {
+      expect(g.turnPlayer()).toBe(p);
+      g.do(p, { type: 'draw', from: 'stock' });
+      g.do(p, { type: 'discard', cardId: g.hand(p).loose[0]!.id });
+    }
+    expect(g.try(1, { type: 'draw', from: 'stock' })).toMatch(/turn/);
+  });
+
+  it('first turn: 6 pairs to declare; picks the joker first, then the round ends', () => {
+    const g = withPairs(6);
+    g.do(1, { type: 'pairs', action: 'declare' });
+    g.do(0, { type: 'ack' });
+    g.do(2, { type: 'ack' });
+    expect(g.round.awaitingPick).toBe(g.ids[1]);
+    g.do(1, { type: 'pickJoker', index: 3 });
+    expect(g.state.phase).toBe('roundOver');
+    const res = g.state.result!;
+    expect(res).toMatchObject({ declarer: g.ids[1], how: 'pairs' });
+    const mom = res.rows.find((r) => r.player === g.ids[1])!;
+    expect(mom.unused).toBe(0);
+    expect(Object.values(g.state.totals).reduce((a, b) => a + b, 0)).toBe(0);
+  });
+
+  it('pairs only count on the first turn before drawing, or after drawing once everyone has had a turn', () => {
+    const g = withPairs(6);
+    g.do(1, { type: 'draw', from: 'stock' });
+    expect(g.view(1).round!.pairsWindow).toBeNull();
+    expect(g.try(1, { type: 'pairs', action: 'pack', discardId: g.hand(1).loose[0]!.id })).toMatch(/first turn/);
+    g.do(1, { type: 'discard', cardId: g.hand(1).loose.at(-1)!.id });
+    for (const p of [2, 0]) {
+      g.do(p, { type: 'draw', from: 'stock' });
+      g.do(p, { type: 'discard', cardId: g.hand(p).loose[0]!.id });
+    }
+    // Everyone has had a turn: now 6 to pack / 7 to declare, after drawing.
+    expect(g.view(1).round!.pairsWindow).toEqual({ pack: 6, declare: 7, afterDraw: true });
+    expect(g.try(1, { type: 'pairs', action: 'pack' })).toMatch(/Draw a card first/);
+    g.do(1, { type: 'draw', from: 'stock' });
+    expect(g.try(1, { type: 'pairs', action: 'pack' })).toMatch(/Choose the card to put down/);
+    // Putting down one of a pair leaves 5: not enough.
+    const pairCard = g.hand(1).loose.find((c) => c.rank === 3 && c.suit === 'D')!;
+    expect(g.try(1, { type: 'pairs', action: 'pack', discardId: pairCard.id })).toMatch(/need 6 pairs to pack, you have 5/);
+    const spare = g.hand(1).loose.find((c) => countPairs(g.hand(1).loose.filter((x) => x !== c)) === 6)!;
+    g.do(1, { type: 'pairs', action: 'pack', discardId: spare.id });
+    expect(g.round.discard.at(-1)).toEqual(spare);
+    g.do(0, { type: 'ack' });
+    g.do(2, { type: 'ack' });
+    expect(g.view(2).players[1]!.packed).toBe('pairs');
+  });
+
+  it('pack on your own turn: 5 card points + value difference, joker visible', () => {
+    const g = new Game(3);
+    g.do(0, { type: 'start' });
+    expect(g.try(2, { type: 'pack' })).toMatch(/Mom's turn/);
+    g.do(1, { type: 'draw', from: 'stock' });
+    expect(g.try(1, { type: 'pack' })).toMatch(/Choose the card to put down/);
+    g.do(1, { type: 'pack', discardId: g.hand(1).loose[0]!.id });
+    expect(g.hand(1).loose).toHaveLength(21);
+    expect(g.view(0).players[1]!.packed).toBe('any');
+    expect(g.turnPlayer()).toBe(2);
+    // Dad shows, Vikram checks (Mom, packed, doesn't have to), Dad picks the joker.
+    g.setHand(2, showableHand('d').sets, showableHand('d').loose.slice(0, 12));
+    g.do(2, { type: 'show' });
+    expect(g.view(0).round!.show!.waitingFor).toEqual([g.ids[0]]);
+    g.do(0, { type: 'ack' });
+    g.do(2, { type: 'pickJoker', index: 0 });
+    // The joker is visible to the packed player, not to Vikram.
+    expect(g.view(1).round!.joker).toEqual(g.round.picked);
+    expect(g.view(0).round!.joker).toBeNull();
+  });
+
+  it('settlement: packed players pay fixed card points + declarer value − own value', () => {
+    const g = new Game(4);
+    g.do(0, { type: 'start' });
+    const r = g.round;
+    r.picked = parseCard('7H', 'picked-7H');
+    r.seen = [g.ids[1]!];
+    // Vikram packed any time (5 points), Dad with pairs (0), Sister plays on.
+    r.packed = [
+      { id: g.ids[0]!, how: 'any', points: 5 },
+      { id: g.ids[2]!, how: 'pairs', points: 0 },
+    ];
+    g.setHand(0, [], cards('v', 'KD QD JC 9S 2S 3D 4C 5H 9D 10S JH QC KS AD 2D 3S 4H 5D 9C 10H 8H')); // 8♥ = 2 value
+    g.setHand(2, [], cards('d', 'KD KD QD QD JC JC 9S 9S 2S 2S 3D AH 4C 5H 9D 10S JH QC KS 2D 3S'));
+    g.setHand(1, [cards('a', '4S 5S 6S'), cards('b', '9D 10D JD'), cards('c', 'KC KC KC'), cards('e', '6H 7H 8H'), cards('f', '10C JC QC'), cards('g', '8S 9S 10S'), cards('h', '3H 4H 5H')], []);
+    g.do(1, { type: 'declare' });
+    const row = (i: number) => g.state.result!.rows.find((x) => x.player === g.ids[i])!;
+    expect(row(0)).toMatchObject({ packed: 'any', unused: 5, value: 2, pays: 5 + 10 - 2 });
+    expect(row(2)).toMatchObject({ packed: 'pairs', unused: 0, pays: 0 + 10 - 0 });
+    expect(row(3).packed).toBeNull();
   });
 });
 

@@ -23,6 +23,10 @@ export function eventText(view: TableView, e: LastAction): string {
       return `${who} showed 3 sets`;
     case 'sawJoker':
       return `${who} saw the joker`;
+    case 'showedPairs':
+      return `${who} showed ${e.pairs} pairs to ${e.purpose}`;
+    case 'packed':
+      return `${who} packed${e.how === 'pairs' ? ' with pairs' : ''}`;
     case 'openingShow':
       return `${who} showed ${e.cards.map(cardText).join(' ')} · +${e.points} from each`;
   }

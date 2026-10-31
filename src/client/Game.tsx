@@ -5,6 +5,7 @@ import type { TableView } from '../game/protocol';
 import {
   canDeclare,
   type Card as CardT,
+  countPairs,
   isOpeningCard,
   openingPoints,
   rankAbove,
@@ -65,6 +66,13 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
 
   // Declare needs a second tap (it ends the round).
   const [confirmDeclare, setConfirmDeclare] = useState(false);
+  /** Pack / pairs buttons need a second tap too: which one is waiting for it. */
+  const [confirmOut, setConfirmOut] = useState<string | null>(null);
+  useEffect(() => {
+    if (!confirmOut) return;
+    const t = setTimeout(() => setConfirmOut(null), 3000);
+    return () => clearTimeout(t);
+  }, [confirmOut]);
   useEffect(() => {
     if (!confirmDeclare) return;
     const t = setTimeout(() => setConfirmDeclare(false), 3000);
@@ -124,6 +132,56 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
   const discard = (id: string) => {
     if (conn.send({ type: 'discard', cardId: id })) clearSel();
   };
+  // ---------- Packing and pairs (2026-10-31) ----------
+  const packedMe = me.packed;
+  const all = allCards(hand);
+  const win = round.pairsWindow;
+  const afterDraw = round.stage === 'discard';
+  // Pairs you'd keep: all cards before drawing, or all but the card you put down after drawing.
+  const pairsNow = !win ? 0 : !win.afterDraw ? countPairs(all) : putDown ? countPairs(all.filter((c) => c.id !== putDown.id)) : 0;
+  const pairsMaybe = win?.afterDraw && !putDown && countPairs(all) >= win.pack;
+  const canPackAny = myTurn && !waiting && !packedMe;
+  const twice = (key: string, run: () => void) => {
+    if (confirmOut !== key) return setConfirmOut(key);
+    setConfirmOut(null);
+    run();
+  };
+  const withDiscard = <T extends object>(msg: T) => (afterDraw && putDown ? { ...msg, discardId: putDown.id } : msg);
+  const outButtons = (
+    <>
+      {win && pairsNow >= win.declare && (
+        <button
+          type="button"
+          className={`btn ${confirmOut === 'pdeclare' ? 'btn-gold' : 'btn-outline'}`}
+          onClick={() => twice('pdeclare', () => conn.send(withDiscard({ type: 'pairs', action: 'declare' as const })))}
+        >
+          {confirmOut === 'pdeclare' ? 'Tap again: declare' : `Declare · ${pairsNow} pairs`}
+        </button>
+      )}
+      {win && pairsNow >= win.pack && (
+        <button
+          type="button"
+          className={`btn btn-small ${confirmOut === 'ppack' ? 'btn-gold' : 'btn-outline'}`}
+          onClick={() => twice('ppack', () => conn.send(withDiscard({ type: 'pairs', action: 'pack' as const })))}
+        >
+          {confirmOut === 'ppack' ? 'Tap again: pack' : `Pack · ${pairsNow} pairs (0 pts)`}
+        </button>
+      )}
+      {pairsMaybe && <p className="hint small">Pairs: tap the card to put down, then Pack or Declare</p>}
+      {canPackAny && !(win && pairsNow >= win.pack) && (
+        <button
+          type="button"
+          className={`btn btn-small ${confirmOut === 'pack' ? 'btn-danger' : 'btn-ghost'}`}
+          disabled={afterDraw && !putDown}
+          title={afterDraw && !putDown ? 'Tap the card to put down first' : undefined}
+          onClick={() => twice('pack', () => conn.send(withDiscard({ type: 'pack' as const })))}
+        >
+          {confirmOut === 'pack' ? 'Tap again: pack (5 pts)' : afterDraw && putDown ? `Pack · put down ${cardText(putDown)}` : 'Pack (5 pts)'}
+        </button>
+      )}
+    </>
+  );
+
   const declare = () => {
     if (!confirmDeclare) return setConfirmDeclare(true);
     setConfirmDeclare(false);
@@ -181,7 +239,9 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
     onDrop: draggable ? dropOnCard(c.id) : undefined,
   });
 
-  const pill = waiting
+  const pill = packedMe
+    ? 'You packed · waiting for the round to end'
+    : waiting
     ? round.opening
       ? 'Before play: show A♠ / 2♣?'
       : round.show
@@ -264,6 +324,7 @@ export function Game({ view, conn, fourColor, wide, onOpenPlayer, onOpenMenu }: 
               {declareCheck && !declareCheck.ok && round.stage === 'discard' && sel.length === 0 && (
                 <p className="hint small">{declareCheck.reason}</p>
               )}
+              {outButtons}
               {!myTurn && !waiting && lastEvent && !wide && <p className="hint">{eventText(view, lastEvent)}</p>}
               {sel.length > 0 && (
                 <div className="sel-tools">
@@ -439,6 +500,7 @@ export function TopBar({
               <span>{p.name}</span>
               {p.seen && <EyeIcon />}
               {!p.connected && <span className="chip-off">offline</span>}
+              {p.packed && <span className="chip-off">packed</span>}
             </button>
           ))}
       </nav>

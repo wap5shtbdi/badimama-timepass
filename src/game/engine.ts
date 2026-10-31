@@ -18,6 +18,9 @@ import {
   meetsMinimum,
   MIN_PLAYERS,
   openingPoints,
+  PACK_POINTS,
+  PAIRS,
+  pairsOf,
   scoreRound,
   shuffle,
 } from '../rules';
@@ -53,6 +56,15 @@ export interface PendingShow {
   by: string;
   sets: Card[][];
   acks: string[];
+  /** Missing on old saved games = 'sets'. */
+  kind?: 'sets' | 'pack' | 'pairs';
+}
+
+export interface Packed {
+  id: string;
+  how: 'pairs' | 'any';
+  /** Card points paid at the end instead of counting unused cards. */
+  points: number;
 }
 
 export interface RoundState {
@@ -84,6 +96,12 @@ export interface RoundState {
   opening?: { decided: string[] } | null;
   /** A♠ / 2♣ shown this round; already paid into totals. */
   openingShows?: OpeningShow[];
+  /** Players who have finished a turn (thrown a card) or packed. */
+  played?: string[];
+  /** Players out of this round. */
+  packed?: Packed[];
+  /** Declaring with pairs, waiting for this player to pick the joker first. */
+  pairsDeclare?: string | null;
 }
 
 export interface TableState {
@@ -209,6 +227,10 @@ export function act(state: TableState, playerId: string, msg: ClientMessage, env
       return show(state, playerId, msg.setIndexes);
     case 'opening':
       return opening(state, playerId, msg.show);
+    case 'pairs':
+      return pairs(state, playerId, msg.action, msg.discardId);
+    case 'pack':
+      return packAnyTime(state, playerId, msg.discardId);
     case 'ack':
       return ack(state, playerId);
     case 'pickJoker':
@@ -259,6 +281,9 @@ function startRound(state: TableState, playerId: string, env: EngineEnv): void {
     events: [],
     opening: { decided: [] },
     openingShows: [],
+    played: [],
+    packed: [],
+    pairsDeclare: null,
   };
   state.result = null;
   state.phase = 'playing';
@@ -433,8 +458,102 @@ function discard(state: TableState, playerId: string, cardId: unknown): void {
   guardMinimum(round, playerId, hand.sets);
   round.discard.push(card);
   record(round, { by: playerId, kind: 'discarded', card });
+  markPlayed(round, playerId);
+  passTurn(round);
+}
+
+// ---------- Turns, packing ----------
+
+function packedIds(round: RoundState): string[] {
+  return (round.packed ?? []).map((p) => p.id);
+}
+
+function isPacked(round: RoundState, id: string): boolean {
+  return packedIds(round).includes(id);
+}
+
+function markPlayed(round: RoundState, id: string): void {
+  round.played ??= [];
+  if (!round.played.includes(id)) round.played.push(id);
+}
+
+/** Next player who hasn't packed draws. */
+function passTurn(round: RoundState): void {
+  const n = round.seats.length;
   round.stage = 'draw';
-  round.turn = (round.turn + 1) % round.seats.length;
+  for (let step = 1; step <= n; step++) {
+    const i = (round.turn + step) % n;
+    if (!isPacked(round, round.seats[i] as string)) {
+      round.turn = i;
+      return;
+    }
+  }
+}
+
+function packPlayer(round: RoundState, id: string, how: Packed['how']): void {
+  (round.packed ??= []).push({ id, how, points: PACK_POINTS[how] });
+  markPlayed(round, id);
+  record(round, { by: id, kind: 'packed', how });
+  if (round.seats[round.turn] === id) passTurn(round);
+}
+
+/**
+ * Pack on your own turn, any time after the round has started (confirmed 2026-10-31):
+ * 5 card points + value difference. After drawing, you put one card down as you pack.
+ */
+function packAnyTime(state: TableState, playerId: string, discardId: unknown): void {
+  const round = requireRound(state);
+  const hand = requireHand(round, playerId);
+  if (isPacked(round, playerId)) fail('You have already packed');
+  requireNotWaiting(state, round);
+  requireTurn(state, round, playerId);
+  if (round.stage === 'discard') {
+    if (discardId === undefined) fail('Choose the card to put down');
+    const card = takeFromHand(hand, discardId);
+    round.discard.push(card);
+    record(round, { by: playerId, kind: 'discarded', card });
+  } else if (discardId !== undefined) {
+    fail('Draw a card first');
+  }
+  packPlayer(round, playerId, 'any');
+}
+
+/** Pack or declare with pairs (confirmed 2026-10-31). See PAIRS in rules/pairs.ts. */
+function pairs(state: TableState, playerId: string, action: unknown, discardId: unknown): void {
+  const round = requireRound(state);
+  const hand = requireHand(round, playerId);
+  if (action !== 'pack' && action !== 'declare') fail('Pack or declare');
+  if (isPacked(round, playerId)) fail('You have already packed');
+  requireNotWaiting(state, round);
+  requireTurn(state, round, playerId);
+  const firstTurn = !(round.played ?? []).includes(playerId) && round.stage === 'draw';
+  const fullRound = round.seats.every((id) => (round.played ?? []).includes(id));
+  let rule: { pack: number; declare: number };
+  let keep: Card[];
+  if (firstTurn) {
+    if (discardId !== undefined) fail('Before drawing there is no card to put down');
+    rule = PAIRS.firstTurn;
+    keep = handCards(hand);
+  } else if (fullRound) {
+    if (round.stage !== 'discard') fail('Draw a card first: with pairs you pack or declare after drawing');
+    if (discardId === undefined) fail('Choose the card to put down');
+    rule = PAIRS.later;
+    keep = handCards(hand).filter((c) => c.id !== discardId);
+    if (keep.length === handCards(hand).length) fail("That card isn't in your hand");
+  } else {
+    fail('Pairs count on your first turn (before drawing), or once everyone has had a turn');
+  }
+  const need = action === 'pack' ? rule.pack : rule.declare;
+  const found = pairsOf(keep);
+  if (found.length < need) fail(`You need ${need} pairs to ${action}, you have ${found.length}`);
+  if (discardId !== undefined) {
+    const card = takeFromHand(hand, discardId);
+    round.discard.push(card);
+    record(round, { by: playerId, kind: 'discarded', card });
+  }
+  // Everyone checks the pairs ("OK, I've seen them"), then it takes effect (see ack).
+  round.show = { by: playerId, sets: structuredClone(found), acks: [], kind: action === 'pack' ? 'pack' : 'pairs' };
+  record(round, { by: playerId, kind: 'showedPairs', pairs: found.length, purpose: action });
 }
 
 // ---------- Show, acknowledge, pick the joker (SPEC 3, 8 "Show-and-acknowledge flow") ----------
@@ -474,10 +593,24 @@ function ack(state: TableState, playerId: string): void {
   if (!pending) fail('Nothing to check right now');
   if (pending.by === playerId) fail('Others check your sets, not you');
   if (!pending.acks.includes(playerId)) pending.acks.push(playerId);
-  const everyone = round.seats.filter((id) => id !== pending.by);
+  const everyone = round.seats.filter((id) => id !== pending.by && !isPacked(round, id));
   if (!everyone.every((id) => pending.acks.includes(id))) return;
-  // Everyone has checked: the first shower picks the joker, later showers simply see it.
   round.show = null;
+  if (pending.kind === 'pack') {
+    packPlayer(round, pending.by, 'pairs');
+    return;
+  }
+  if (pending.kind === 'pairs') {
+    // Declaring with pairs: pick the joker first if nobody has (confirmed), then the round ends.
+    if (round.picked === null) {
+      round.awaitingPick = pending.by;
+      round.pairsDeclare = pending.by;
+    } else {
+      settle(state, round, pending.by, 'pairs');
+    }
+    return;
+  }
+  // Everyone has checked: the first shower picks the joker, later showers simply see it.
   if (round.picked === null) {
     round.awaitingPick = pending.by;
   } else {
@@ -498,6 +631,10 @@ function pickJoker(state: TableState, playerId: string, index: unknown, env: Eng
   round.awaitingPick = null;
   round.seen.push(playerId);
   record(round, { by: playerId, kind: 'sawJoker' });
+  if (round.pairsDeclare === playerId) {
+    round.pairsDeclare = null;
+    settle(state, round, playerId, 'pairs');
+  }
 }
 
 // ---------- Before play: show A♠ / 2♣ (confirmed 2026-10-31) ----------
@@ -559,12 +696,17 @@ function declare(state: TableState, playerId: string, discardId: unknown): void 
   }
   const check = canDeclare(hand.sets, hand.loose, round.picked);
   if (!check.ok) fail(check.reason ?? "You can't declare yet");
+  settle(state, round, playerId, 'sets');
+}
 
+/** End the round with `playerId` as declarer: score, pay, show the result. */
+function settle(state: TableState, round: RoundState, playerId: string, how: RoundResult['how']): void {
   const picked = round.picked as Card;
   const declarerIdx = round.seats.indexOf(playerId);
   const hands: PlayerHand[] = round.seats.map((id) => {
     const h = round.hands[id] as Hand;
-    return { sets: h.sets, loose: h.loose, seenJoker: round.seen.includes(id) };
+    const packed = (round.packed ?? []).find((p) => p.id === id);
+    return { sets: h.sets, loose: h.loose, seenJoker: round.seen.includes(id), packedPoints: packed?.points };
   });
   const scored = scoreRound(hands, declarerIdx, picked);
   const rows: ResultRow[] = round.seats.map((id, i) => {
@@ -583,6 +725,7 @@ function declare(state: TableState, playerId: string, discardId: unknown): void 
       pays: payment?.toDeclarer ?? 0,
       net,
       openingNet: openingNet(round, id),
+      packed: (round.packed ?? []).find((p) => p.id === id)?.how ?? null,
       // Declarer: their own arrangement. Others: the automatic best arrangement that was scored.
       sets: r.sets,
       loose: r.loose,
@@ -593,6 +736,7 @@ function declare(state: TableState, playerId: string, discardId: unknown): void 
     roundNo: round.roundNo,
     declarer: playerId,
     joker: picked,
+    how,
     rows,
     openingShows: structuredClone(round.openingShows ?? []),
   };
@@ -611,7 +755,9 @@ export function viewFor(state: TableState, playerId: string | null, connected: R
   // Other players' sets can give away the joker (a set held together by wildcards shows which
   // cards are wild). Until you've seen the joker you only get their pure sequences and trails;
   // the rest are counted, not sent (bug reported 2026-10-29).
-  const viewerSeen = !!playerId && !!round?.seen.includes(playerId);
+  // A player who has packed is out of the round: the joker becomes visible to them (confirmed).
+  const viewerPacked = !!playerId && !!round && isPacked(round, playerId);
+  const viewerSeen = (!!playerId && !!round?.seen.includes(playerId)) || viewerPacked;
   const players: PlayerView[] = state.players.map((p) => {
     const hand = round?.hands[p.id];
     const all = hand ? hand.sets : [];
@@ -624,6 +770,7 @@ export function viewFor(state: TableState, playerId: string | null, connected: R
       inRound: !!hand,
       seen: !!round?.seen.includes(p.id),
       shown: !!round?.shown.includes(p.id),
+      packed: (round?.packed ?? []).find((x) => x.id === p.id)?.how ?? null,
       sets: structuredClone(visible),
       hiddenSets: all.length - visible.length,
       cardCount: hand ? hand.sets.flat().length + hand.loose.length : 0,
@@ -645,18 +792,20 @@ export function viewFor(state: TableState, playerId: string | null, connected: R
       discardRecent: round.discard.slice(-DISCARD_SHOWN),
       discardCount: round.discard.length,
       hand: mine ? structuredClone(mine) : null,
-      joker: playerId && round.seen.includes(playerId) ? round.picked : null,
+      joker: viewerSeen ? round.picked : null,
       jokerPicked: round.picked !== null,
       pickedBy: round.pickedBy,
       show: pending
         ? {
+            kind: pending.kind ?? 'sets',
             by: pending.by,
             sets: structuredClone(pending.sets),
             acks: [...pending.acks],
-            waitingFor: round.seats.filter((id) => id !== pending.by && !pending.acks.includes(id)),
+            waitingFor: round.seats.filter((id) => id !== pending.by && !pending.acks.includes(id) && !isPacked(round, id)),
           }
         : null,
       awaitingPick: round.awaitingPick,
+      pairsWindow: pairsWindowFor(round, playerId),
       opening: round.opening
         ? { waitingFor: round.seats.filter((id) => !round.opening!.decided.includes(id)) }
         : null,
@@ -678,6 +827,15 @@ export function viewFor(state: TableState, playerId: string | null, connected: R
   };
 }
 
+function pairsWindowFor(round: RoundState, playerId: string | null): RoundView['pairsWindow'] {
+  if (!playerId || round.seats[round.turn] !== playerId || isPacked(round, playerId)) return null;
+  if (round.opening || round.show || round.awaitingPick) return null;
+  const played = round.played ?? [];
+  if (!played.includes(playerId) && round.stage === 'draw') return { ...PAIRS.firstTurn, afterDraw: false };
+  if (round.seats.every((id) => played.includes(id))) return { ...PAIRS.later, afterDraw: true };
+  return null;
+}
+
 // ---------- Parsing incoming messages ----------
 
 const TYPES = new Set([
@@ -690,6 +848,8 @@ const TYPES = new Set([
   'discard',
   'show',
   'opening',
+  'pairs',
+  'pack',
   'ack',
   'pickJoker',
   'declare',

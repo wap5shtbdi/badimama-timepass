@@ -22,6 +22,16 @@ export type ClientMessage =
   | { type: 'show'; setIndexes?: number[] }
   /** Before play: show your A♠ / 2♣ (show: true) or skip (show: false). Everyone answers once. */
   | { type: 'opening'; show: boolean }
+  /**
+   * Pack or declare with pairs (identical cards). First turn, before drawing: 5 to pack, 6 to declare.
+   * Once everyone has had a turn, after drawing: 6 / 7, putting `discardId` down.
+   */
+  | { type: 'pairs'; action: 'pack' | 'declare'; discardId?: string }
+  /**
+   * Pack on your turn once play has started: out of the round, pays 5 card points + value difference.
+   * After drawing, `discardId` is the card you put down.
+   */
+  | { type: 'pack'; discardId?: string }
   /** "OK, I've seen them" for the pending show. */
   | { type: 'ack' }
   /** First shower picks the joker: index into the face-down stock spread (0 … stockCount-1). */
@@ -49,6 +59,8 @@ export interface PlayerView {
   seen: boolean;
   /** Has gone through a show this round (pending or done). */
   shown: boolean;
+  /** Out of this round: 'pairs' (card points 0) or 'any' (5 card points). Null if still playing. */
+  packed: 'pairs' | 'any' | null;
   /**
    * Sets you're allowed to see (SPEC 8: "tap a player's name"). Loose cards never are.
    * Before you've seen the joker: only their pure sequences and trails (others would reveal it).
@@ -62,6 +74,8 @@ export interface PlayerView {
 }
 
 export interface ShowView {
+  /** sets: 3 pure sets to see the joker; pack / pairs: pairs shown to pack / to declare. */
+  kind: 'sets' | 'pack' | 'pairs';
   by: string;
   sets: Card[][];
   acks: string[];
@@ -88,6 +102,8 @@ export interface RoundView {
   show: ShowView | null;
   /** Player who must pick the joker now (everyone acknowledged their first show). */
   awaitingPick: string | null;
+  /** Your chance to pack / declare with pairs right now (your turn), or null. */
+  pairsWindow: { pack: number; declare: number; afterDraw: boolean } | null;
   /** Before play: who still has to show their A♠ / 2♣ or skip. Null once play has started. */
   opening: { waitingFor: string[] } | null;
   /** A♠ / 2♣ shown this round (public). */
@@ -104,6 +120,8 @@ export type LastAction =
   | { by: string; kind: 'discarded'; card: Card }
   | { by: string; kind: 'showed' }
   | { by: string; kind: 'openingShow'; cards: Card[]; points: number }
+  | { by: string; kind: 'showedPairs'; pairs: number; purpose: 'pack' | 'declare' }
+  | { by: string; kind: 'packed'; how: 'pairs' | 'any' }
   | { by: string; kind: 'sawJoker' };
 
 /** A♠ / 2♣ shown before play: every other player paid `points` to `by` straight away. */
@@ -130,6 +148,8 @@ export interface ResultRow {
   net: number;
   /** Net from A♠ / 2♣ shown before play (already paid when shown; not part of `net`). */
   openingNet: number;
+  /** Packed this round: 'pairs' (card points 0) or 'any' (5), else null. */
+  packed: 'pairs' | 'any' | null;
   /** Full hand, revealed at the end of the round. For everyone but the declarer, arranged automatically for scoring. */
   sets: Card[][];
   loose: Card[];
@@ -139,6 +159,8 @@ export interface RoundResult {
   roundNo: number;
   declarer: string;
   joker: Card;
+  /** How the declarer won: 3+ sets as usual, or with pairs. */
+  how: 'sets' | 'pairs';
   rows: ResultRow[];
   openingShows: OpeningShow[];
 }

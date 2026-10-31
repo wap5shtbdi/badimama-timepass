@@ -2,6 +2,7 @@ export * from './cards';
 export * from './sets';
 export * from './scoring';
 export * from './arrange';
+export * from './pairs';
 
 import { bestArrangement } from './arrange';
 import type { Card } from './cards';
@@ -12,6 +13,8 @@ export interface PlayerHand {
   loose: Card[];
   /** Has this player seen the joker? Decides which sets are valid for them. */
   seenJoker: boolean;
+  /** Packed: fixed card points instead of counting unused cards (0 with pairs, 5 any time). */
+  packedPoints?: number;
 }
 
 export interface PlayerRoundResult {
@@ -42,6 +45,10 @@ export function scoreRound(
     const v = valuePoints(all, picked);
     if (i === declarer) {
       return { value: v.points, marriages: v.marriages, unusedSum: 0, unused: 0, sets: h.sets, loose: h.loose };
+    }
+    if (h.packedPoints !== undefined) {
+      // Values still count; card points are fixed.
+      return { value: v.points, marriages: v.marriages, unusedSum: 0, unused: h.packedPoints, sets: h.sets, loose: h.loose };
     }
     const arranged = bestArrangement(all, picked, h.seenJoker);
     const u = unusedPoints(arranged.loose, picked);

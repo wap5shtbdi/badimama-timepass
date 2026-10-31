@@ -28,7 +28,9 @@ export function Result({ view, conn, fourColor, onLeave }: { view: TableView; co
   return (
     <main className="result">
       <div className="result-head">
-        <h1>{nm(declarer)} declared</h1>
+        <h1>
+          {nm(declarer)} declared{result.how === 'pairs' ? ' with pairs' : ''}
+        </h1>
         <span className="muted">
           Round {result.roundNo} · Joker was {cardText(result.joker)}
         </span>
@@ -65,6 +67,11 @@ export function Result({ view, conn, fourColor, onLeave }: { view: TableView; co
               <span role="cell" className="stack">
                 {isDeclarer ? (
                   'Declared'
+                ) : r.packed ? (
+                  <>
+                    <span>{r.unused} pts</span>
+                    <span className="muted small">{r.packed === 'pairs' ? 'packed with pairs' : 'packed'}</span>
+                  </>
                 ) : (
                   <>
                     <span>
@@ -134,7 +141,13 @@ export function Result({ view, conn, fourColor, onLeave }: { view: TableView; co
           <div className="modal-head">
             <h2>{nm(openRow)}</h2>
             <span className="muted">
-              {openRow.player === result.declarer ? 'Declared with these sets' : 'Arranged automatically for scoring'}
+              {openRow.player === result.declarer
+                ? result.how === 'pairs'
+                  ? 'Declared with pairs'
+                  : 'Declared with these sets'
+                : openRow.packed
+                  ? 'Packed: cards as held'
+                  : 'Arranged automatically for scoring'}
             </span>
             <span className="grow" />
             <button type="button" className="btn btn-small btn-ghost" onClick={() => setOpenRow(null)}>
