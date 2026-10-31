@@ -1070,6 +1070,13 @@ button.card {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+  /* Always on screen, even when the table is taller than a phone. */
+  position: sticky;
+  bottom: calc(-16px - env(safe-area-inset-bottom));
+  margin-bottom: calc(-16px - env(safe-area-inset-bottom));
+  padding: 8px 0 calc(16px + env(safe-area-inset-bottom));
+  background: var(--felt);
+  box-shadow: 0 -10px 12px -6px var(--felt);
 }
 
 /* ---------- Dialogs ---------- */
@@ -1252,5 +1259,19 @@ button.card {
   .sets-row {
     padding-top: 4px;
     padding-bottom: 4px;
+  }
+  .result {
+    gap: 8px;
+    padding-top: calc(10px + env(safe-area-inset-top));
+  }
+  .result-head h1 {
+    font-size: 20px;
+  }
+  .result-head strong {
+    font-size: 17px;
+  }
+  .rt-row {
+    padding: 5px 14px;
+    font-size: 15px;
   }
 }
